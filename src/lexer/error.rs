@@ -20,6 +20,7 @@ impl LexErrorKind {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct LexError {
     pub kind: LexErrorKind,
     pub span: Span,
