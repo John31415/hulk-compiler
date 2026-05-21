@@ -1,0 +1,21 @@
+---
+source: src/parser/expr/postfix.rs
+expression: ast
+---
+node:
+  Call:
+    name: print
+    args:
+      - node:
+          Literal:
+            node:
+              String: Hello World
+            span:
+              start: 15
+              end: 28
+        span:
+          start: 15
+          end: 28
+span:
+  start: 9
+  end: 14

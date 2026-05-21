@@ -1,0 +1,9 @@
+---
+source: src/parser/expr/primary.rs
+expression: ast
+---
+node:
+  Variable: var
+span:
+  start: 9
+  end: 12

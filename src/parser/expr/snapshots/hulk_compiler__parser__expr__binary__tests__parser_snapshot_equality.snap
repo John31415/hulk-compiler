@@ -1,0 +1,58 @@
+---
+source: src/parser/expr/binary.rs
+expression: ast
+---
+node:
+  Binary:
+    left_expr:
+      node:
+        Binary:
+          left_expr:
+            node:
+              Literal:
+                node:
+                  Number: 1
+                span:
+                  start: 9
+                  end: 10
+            span:
+              start: 9
+              end: 10
+          op:
+            node: DoubleEqual
+            span:
+              start: 11
+              end: 13
+          right_expr:
+            node:
+              Literal:
+                node:
+                  Number: 2
+                span:
+                  start: 14
+                  end: 15
+            span:
+              start: 14
+              end: 15
+      span:
+        start: 9
+        end: 15
+    op:
+      node: NotEqual
+      span:
+        start: 16
+        end: 18
+    right_expr:
+      node:
+        Literal:
+          node:
+            Number: 3
+          span:
+            start: 19
+            end: 20
+      span:
+        start: 19
+        end: 20
+span:
+  start: 9
+  end: 20

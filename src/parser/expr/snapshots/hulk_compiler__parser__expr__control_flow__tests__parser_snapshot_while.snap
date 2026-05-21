@@ -1,0 +1,31 @@
+---
+source: src/parser/expr/control_flow.rs
+expression: ast
+---
+node:
+  While:
+    condition:
+      node:
+        Literal:
+          node:
+            Bool: true
+          span:
+            start: 16
+            end: 20
+      span:
+        start: 16
+        end: 20
+    body:
+      node:
+        Literal:
+          node:
+            Number: 1
+          span:
+            start: 22
+            end: 23
+      span:
+        start: 22
+        end: 23
+span:
+  start: 16
+  end: 23

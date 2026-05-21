@@ -1,0 +1,70 @@
+---
+source: src/parser/expr/control_flow.rs
+expression: ast
+---
+node:
+  If:
+    condition:
+      node:
+        Literal:
+          node:
+            Bool: true
+          span:
+            start: 13
+            end: 17
+      span:
+        start: 13
+        end: 17
+    then_branch:
+      node:
+        Literal:
+          node:
+            Number: 1
+          span:
+            start: 19
+            end: 20
+      span:
+        start: 19
+        end: 20
+    else_branch:
+      node:
+        If:
+          condition:
+            node:
+              Literal:
+                node:
+                  Bool: false
+                span:
+                  start: 35
+                  end: 40
+            span:
+              start: 35
+              end: 40
+          then_branch:
+            node:
+              Literal:
+                node:
+                  Number: 2
+                span:
+                  start: 42
+                  end: 43
+            span:
+              start: 42
+              end: 43
+          else_branch:
+            node:
+              Literal:
+                node:
+                  Number: 3
+                span:
+                  start: 57
+                  end: 58
+            span:
+              start: 57
+              end: 58
+      span:
+        start: 35
+        end: 58
+span:
+  start: 13
+  end: 58
