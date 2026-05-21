@@ -1,0 +1,179 @@
+---
+source: src/parser/decl/type_decl.rs
+expression: ast
+---
+node:
+  Type:
+    name: PolarPoint
+    params:
+      - - phi
+        - Number
+      - - rho
+        - ~
+    parent:
+      node:
+        parent_name: Point
+        args:
+          - node:
+              Binary:
+                left_expr:
+                  node:
+                    Variable: rho
+                  span:
+                    start: 58
+                    end: 61
+                op:
+                  node: Mul
+                  span:
+                    start: 62
+                    end: 63
+                right_expr:
+                  node:
+                    Call:
+                      name: sin
+                      args:
+                        - node:
+                            Variable: phi
+                          span:
+                            start: 68
+                            end: 71
+                  span:
+                    start: 64
+                    end: 67
+            span:
+              start: 58
+              end: 67
+          - node:
+              Binary:
+                left_expr:
+                  node:
+                    Variable: rho
+                  span:
+                    start: 74
+                    end: 77
+                op:
+                  node: Mul
+                  span:
+                    start: 78
+                    end: 79
+                right_expr:
+                  node:
+                    Call:
+                      name: cos
+                      args:
+                        - node:
+                            Variable: phi
+                          span:
+                            start: 84
+                            end: 87
+                  span:
+                    start: 80
+                    end: 83
+            span:
+              start: 74
+              end: 83
+      span:
+        start: 9
+        end: 26
+    features:
+      - node:
+          Method:
+            name: rho
+            params: []
+            return_type: Number
+            body:
+              node:
+                Call:
+                  name: sqrt
+                  args:
+                    - node:
+                        Binary:
+                          left_expr:
+                            node:
+                              Binary:
+                                left_expr:
+                                  node:
+                                    MethodCall:
+                                      obj:
+                                        node:
+                                          Variable: self
+                                        span:
+                                          start: 126
+                                          end: 130
+                                      method: getX
+                                      args: []
+                                  span:
+                                    start: 126
+                                    end: 130
+                                op:
+                                  node: Pow
+                                  span:
+                                    start: 138
+                                    end: 139
+                                right_expr:
+                                  node:
+                                    Literal:
+                                      node:
+                                        Number: 2
+                                      span:
+                                        start: 140
+                                        end: 141
+                                  span:
+                                    start: 140
+                                    end: 141
+                            span:
+                              start: 126
+                              end: 141
+                          op:
+                            node: Add
+                            span:
+                              start: 142
+                              end: 143
+                          right_expr:
+                            node:
+                              Binary:
+                                left_expr:
+                                  node:
+                                    MethodCall:
+                                      obj:
+                                        node:
+                                          Variable: self
+                                        span:
+                                          start: 144
+                                          end: 148
+                                      method: getY
+                                      args: []
+                                  span:
+                                    start: 144
+                                    end: 148
+                                op:
+                                  node: Pow
+                                  span:
+                                    start: 156
+                                    end: 157
+                                right_expr:
+                                  node:
+                                    Literal:
+                                      node:
+                                        Number: 2
+                                      span:
+                                        start: 158
+                                        end: 159
+                                  span:
+                                    start: 158
+                                    end: 159
+                            span:
+                              start: 144
+                              end: 159
+                      span:
+                        start: 126
+                        end: 159
+              span:
+                start: 121
+                end: 125
+        span:
+          start: 121
+          end: 125
+span:
+  start: 0
+  end: 53

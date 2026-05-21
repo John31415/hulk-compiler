@@ -1,0 +1,161 @@
+---
+source: src/parser/decl/type_decl.rs
+expression: ast
+---
+node:
+  Type:
+    name: Point
+    params: ~
+    parent: ~
+    features:
+      - node:
+          Attribute:
+            name: x
+            type_name: ~
+            default:
+              node:
+                Literal:
+                  node:
+                    Number: 0
+                  span:
+                    start: 38
+                    end: 39
+              span:
+                start: 38
+                end: 39
+        span:
+          start: 38
+          end: 39
+      - node:
+          Attribute:
+            name: y
+            type_name: ~
+            default:
+              node:
+                Literal:
+                  node:
+                    Number: 0
+                  span:
+                    start: 57
+                    end: 58
+              span:
+                start: 57
+                end: 58
+        span:
+          start: 57
+          end: 58
+      - node:
+          Method:
+            name: getX
+            params: []
+            return_type: ~
+            body:
+              node:
+                PropertyAccess:
+                  obj:
+                    node:
+                      Variable: self
+                    span:
+                      start: 83
+                      end: 87
+                  property: x
+              span:
+                start: 83
+                end: 87
+        span:
+          start: 83
+          end: 87
+      - node:
+          Method:
+            name: getY
+            params: []
+            return_type: ~
+            body:
+              node:
+                PropertyAccess:
+                  obj:
+                    node:
+                      Variable: self
+                    span:
+                      start: 113
+                      end: 117
+                  property: y
+              span:
+                start: 113
+                end: 117
+        span:
+          start: 113
+          end: 117
+      - node:
+          Method:
+            name: setX
+            params:
+              - - x
+                - ~
+            return_type: ~
+            body:
+              node:
+                Assign:
+                  target:
+                    node:
+                      PropertyAccess:
+                        obj:
+                          node:
+                            Variable: self
+                          span:
+                            start: 145
+                            end: 149
+                        property: x
+                    span:
+                      start: 145
+                      end: 149
+                  value:
+                    node:
+                      Variable: x
+                    span:
+                      start: 155
+                      end: 156
+              span:
+                start: 145
+                end: 156
+        span:
+          start: 145
+          end: 156
+      - node:
+          Method:
+            name: setY
+            params:
+              - - y
+                - ~
+            return_type: ~
+            body:
+              node:
+                Assign:
+                  target:
+                    node:
+                      PropertyAccess:
+                        obj:
+                          node:
+                            Variable: self
+                          span:
+                            start: 181
+                            end: 185
+                        property: y
+                    span:
+                      start: 181
+                      end: 185
+                  value:
+                    node:
+                      Variable: y
+                    span:
+                      start: 191
+                      end: 192
+              span:
+                start: 181
+                end: 192
+        span:
+          start: 181
+          end: 192
+span:
+  start: 0
+  end: 50

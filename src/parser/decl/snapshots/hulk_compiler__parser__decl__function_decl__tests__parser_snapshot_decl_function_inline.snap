@@ -1,0 +1,46 @@
+---
+source: src/parser/decl/function_decl.rs
+expression: ast
+---
+node:
+  Function:
+    name: pl
+    params:
+      - - text
+        - ~
+      - - str
+        - Number
+    return_type: String
+    body:
+      node:
+        Call:
+          name: print
+          args:
+            - node:
+                Binary:
+                  left_expr:
+                    node:
+                      Variable: text
+                    span:
+                      start: 57
+                      end: 61
+                  op:
+                    node: ConcatSpace
+                    span:
+                      start: 62
+                      end: 64
+                  right_expr:
+                    node:
+                      Variable: str
+                    span:
+                      start: 65
+                      end: 68
+              span:
+                start: 57
+                end: 68
+      span:
+        start: 51
+        end: 56
+span:
+  start: 51
+  end: 56
