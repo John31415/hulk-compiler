@@ -32,8 +32,6 @@ pub enum TokenKind {
     Type,
     #[token("inherits")]
     Inherits,
-    #[token("base")]
-    Base,
     #[token("new")]
     New,
     #[token("is")]
@@ -44,14 +42,6 @@ pub enum TokenKind {
     Protocol,
     #[token("extends")]
     Extends,
-    #[token("Object")]
-    TypeObject,
-    #[token("String")]
-    TypeString,
-    #[token("Number")]
-    TypeNumber,
-    #[token("Boolean")]
-    TypeBoolean,
 
     // Operators
     #[token("+")]
@@ -71,7 +61,7 @@ pub enum TokenKind {
     #[token("=")]
     Equal,
     #[token(":=")]
-    Assign,
+    ColonEqual,
     #[token("<")]
     Less,
     #[token(">")]
@@ -122,15 +112,16 @@ pub enum TokenKind {
     LiteralNumber(f64),
     #[regex(r#""([^"\\]|\\.)*""#, process_string)]
     LiteralString(String),
-    #[token("true", |_| true)]
-    LiteralTrue(bool),
-    #[token("false", |_| false)]
-    LiteralFalse(bool),
+    #[token("true")]
+    LiteralTrue,
+    #[token("false")]
+    LiteralFalse,
 
     // End of file
     EOF,
 }
 
+#[derive(Debug, PartialEq)]
 pub struct Token {
     pub kind: TokenKind,
     pub span: Span,
