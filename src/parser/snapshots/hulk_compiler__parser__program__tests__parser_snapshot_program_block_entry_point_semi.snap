@@ -53,7 +53,7 @@ node:
               start: 53
               end: 59
       span:
-        start: 53
+        start: 40
         end: 59
   body:
     node:

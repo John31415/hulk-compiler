@@ -1,6 +1,7 @@
 use crate::ast::{Decl, DeclKind, Expr, Spanned};
-use crate::lexer::{Span, Token, TokenKind};
+use crate::lexer::{Token, TokenKind};
 use crate::parser::expr::block::block_parser;
+use crate::parser::span_from_token_slice;
 use chumsky::{error::Rich, prelude::*};
 
 pub fn function_decl_parser<'src>(
@@ -69,11 +70,8 @@ pub fn function_decl_parser<'src>(
     let body = choice((inline_body.then_ignore(semi), block_body));
     signature
         .then(body)
-        .map(|(((name, params), return_type), body)| {
-            let span = Span {
-                start: body.span.start,
-                end: body.span.end,
-            };
+        .map_with(|(((name, params), return_type), body), span| {
+            let span = span_from_token_slice(span.slice());
             Spanned::new(
                 DeclKind::Function {
                     name,
