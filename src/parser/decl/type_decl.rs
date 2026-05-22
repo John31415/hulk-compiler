@@ -1,5 +1,5 @@
 use crate::ast::{Decl, DeclKind, Expr, InheritInfoKind, Spanned, TypeFeaturesKind};
-use crate::lexer::{Span, Token, TokenKind};
+use crate::lexer::{Token, TokenKind};
 use crate::parser::expr::block::block_parser;
 use crate::parser::span_from_token_slice;
 use chumsky::{error::Rich, prelude::*};
@@ -86,11 +86,8 @@ pub fn type_decl_parser<'src>(
         })
         .then(expr.clone())
         .then_ignore(semi.clone())
-        .map(|((name, type_name), default)| {
-            let span = Span {
-                start: default.span.start,
-                end: default.span.end,
-            };
+        .map_with(|((name, type_name), default), e| {
+            let span = span_from_token_slice(e.slice());
             Spanned::new(
                 TypeFeaturesKind::Attribute {
                     name,
@@ -114,11 +111,8 @@ pub fn type_decl_parser<'src>(
         .then(params.clone())
         .then(opt_type.clone())
         .then(body)
-        .map(|(((name, params), return_type), body)| {
-            let span = Span {
-                start: body.span.start,
-                end: body.span.end,
-            };
+        .map_with(|(((name, params), return_type), body), e| {
+            let span = span_from_token_slice(e.slice());
             Spanned::new(
                 TypeFeaturesKind::Method {
                     name,
