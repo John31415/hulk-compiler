@@ -1,6 +1,5 @@
 ---
 source: src/parser/tests.rs
-assertion_line: 45
 expression: ast
 ---
 node:
@@ -56,7 +55,7 @@ node:
                                                 end: 158
                                       span:
                                         start: 148
-                                        end: 151
+                                        end: 159
                                     op:
                                       node: Pow
                                       span:
@@ -148,19 +147,19 @@ node:
                                                         end: 188
                                               span:
                                                 start: 179
-                                                end: 182
+                                                end: 189
                                         span:
                                           start: 170
-                                          end: 182
+                                          end: 189
                                 span:
                                   start: 166
-                                  end: 169
+                                  end: 190
                           span:
                             start: 148
-                            end: 169
+                            end: 190
                   span:
                     start: 142
-                    end: 147
+                    end: 191
                 - node:
                     Let:
                       name: a
@@ -227,7 +226,7 @@ node:
                                                     end: 327
                                           span:
                                             start: 286
-                                            end: 291
+                                            end: 328
                                     span:
                                       start: 276
                                       end: 335
@@ -268,7 +267,7 @@ node:
                             end: 410
                   span:
                     start: 405
-                    end: 408
+                    end: 411
                 op:
                   node: Div
                   span:
@@ -286,13 +285,13 @@ node:
                             end: 419
                   span:
                     start: 414
-                    end: 417
+                    end: 420
             span:
               start: 405
-              end: 417
+              end: 420
       span:
         start: 405
-        end: 417
+        end: 420
     - node:
         Type:
           name: Person
@@ -349,7 +348,7 @@ node:
                               property: firstname
                           span:
                             start: 579
-                            end: 583
+                            end: 593
                         op:
                           node: ConcatSpace
                           span:
@@ -367,13 +366,13 @@ node:
                               property: lastname
                           span:
                             start: 597
-                            end: 601
+                            end: 610
                     span:
                       start: 579
-                      end: 601
+                      end: 610
               span:
                 start: 579
-                end: 601
+                end: 610
       span:
         start: 478
         end: 613
@@ -428,7 +427,7 @@ node:
               end: 734
     span:
       start: 707
-      end: 712
+      end: 735
 span:
   start: 707
-  end: 712
+  end: 735

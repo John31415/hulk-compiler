@@ -1,6 +1,5 @@
 ---
 source: src/parser/decl/type_decl.rs
-assertion_line: 207
 expression: ast
 ---
 node:
@@ -48,10 +47,10 @@ node:
                               args: []
                           span:
                             start: 85
-                            end: 89
+                            end: 91
                     span:
                       start: 76
-                      end: 89
+                      end: 91
               span:
                 start: 58
                 end: 106

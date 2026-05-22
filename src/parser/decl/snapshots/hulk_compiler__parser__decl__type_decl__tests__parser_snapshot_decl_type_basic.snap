@@ -1,6 +1,5 @@
 ---
 source: src/parser/decl/type_decl.rs
-assertion_line: 186
 expression: ast
 ---
 node:
@@ -62,10 +61,10 @@ node:
                   property: x
               span:
                 start: 83
-                end: 87
+                end: 89
         span:
           start: 83
-          end: 87
+          end: 89
       - node:
           Method:
             name: getY
@@ -83,10 +82,10 @@ node:
                   property: y
               span:
                 start: 113
-                end: 117
+                end: 119
         span:
           start: 113
-          end: 117
+          end: 119
       - node:
           Method:
             name: setX
@@ -109,7 +108,7 @@ node:
                         property: x
                     span:
                       start: 145
-                      end: 149
+                      end: 151
                   value:
                     node:
                       Variable: x
@@ -144,7 +143,7 @@ node:
                         property: y
                     span:
                       start: 181
-                      end: 185
+                      end: 187
                   value:
                     node:
                       Variable: y

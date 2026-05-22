@@ -1,6 +1,5 @@
 ---
 source: src/parser/decl/type_decl.rs
-assertion_line: 226
 expression: ast
 ---
 node:
@@ -40,10 +39,10 @@ node:
                             end: 71
                   span:
                     start: 64
-                    end: 67
+                    end: 72
             span:
               start: 58
-              end: 67
+              end: 72
           - node:
               Binary:
                 left_expr:
@@ -69,10 +68,10 @@ node:
                             end: 87
                   span:
                     start: 80
-                    end: 83
+                    end: 88
             span:
               start: 74
-              end: 83
+              end: 88
       span:
         start: 43
         end: 89
@@ -105,7 +104,7 @@ node:
                                       args: []
                                   span:
                                     start: 126
-                                    end: 130
+                                    end: 137
                                 op:
                                   node: Pow
                                   span:
@@ -146,7 +145,7 @@ node:
                                       args: []
                                   span:
                                     start: 144
-                                    end: 148
+                                    end: 155
                                 op:
                                   node: Pow
                                   span:
@@ -171,10 +170,10 @@ node:
                         end: 159
               span:
                 start: 121
-                end: 125
+                end: 160
         span:
           start: 121
-          end: 125
+          end: 160
 span:
   start: 9
   end: 171

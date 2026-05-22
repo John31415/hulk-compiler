@@ -1,11 +1,12 @@
 use crate::ast::{Expr, ExprKind, Spanned};
 use crate::lexer::{Span, Token, TokenKind};
+use crate::parser::span_from_token_slice;
 use chumsky::{error::Rich, prelude::*, primitive::choice};
 
 enum PostfixOp {
-    Call(Vec<Expr>),
-    Property(String),
-    MethodCall(String, Vec<Expr>),
+    Call(Vec<Expr>, Span),
+    Property(String, Span),
+    MethodCall(String, Vec<Expr>, Span),
 }
 
 pub fn postfix_parser<'src>(
@@ -35,36 +36,34 @@ pub fn postfix_parser<'src>(
     }
     .then(identifier.clone())
     .then(args.clone())
-    .map(|((_, method), args)| PostfixOp::MethodCall(method, args));
+    .map_with(|((_, method), args), e| {
+        PostfixOp::MethodCall(method, args, span_from_token_slice(e.slice()))
+    });
     let property_access = select_ref! {
         Token { kind: TokenKind::Dot, .. } => ()
     }
     .then(identifier.clone())
-    .map(|(_, property)| PostfixOp::Property(property));
-    let call = args.clone().map(PostfixOp::Call);
+    .map_with(|(_, property), e| PostfixOp::Property(property, span_from_token_slice(e.slice())));
+    let call = args
+        .clone()
+        .map_with(|args, e| PostfixOp::Call(args, span_from_token_slice(e.slice())));
     let postfix_op = choice((method_call, property_access, call));
     lower
         .clone()
         .then(postfix_op.repeated().collect::<Vec<_>>())
         .map(|(expr, ops)| {
             ops.into_iter().fold(expr, |expr, op| match op {
-                PostfixOp::Call(args) => match expr.node {
+                PostfixOp::Call(args, op_span) => match expr.node {
                     ExprKind::Variable(name) => {
-                        let span = Span {
-                            start: expr.span.start,
-                            end: expr.span.end,
-                        };
+                        let span = expr.span.union(&op_span);
                         Spanned::new(ExprKind::Call { name, args }, span)
                     }
                     _ => {
                         panic!("Invalid function call target")
                     }
                 },
-                PostfixOp::Property(property) => {
-                    let span = Span {
-                        start: expr.span.start,
-                        end: expr.span.end,
-                    };
+                PostfixOp::Property(property, op_span) => {
+                    let span = expr.span.union(&op_span);
                     Spanned::new(
                         ExprKind::PropertyAccess {
                             obj: Box::new(expr),
@@ -73,11 +72,8 @@ pub fn postfix_parser<'src>(
                         span,
                     )
                 }
-                PostfixOp::MethodCall(method, args) => {
-                    let span = Span {
-                        start: expr.span.start,
-                        end: expr.span.end,
-                    };
+                PostfixOp::MethodCall(method, args, op_span) => {
+                    let span = expr.span.union(&op_span);
                     Spanned::new(
                         ExprKind::MethodCall {
                             obj: Box::new(expr),
