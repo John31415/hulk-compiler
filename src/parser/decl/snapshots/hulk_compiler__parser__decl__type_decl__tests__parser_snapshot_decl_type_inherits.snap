@@ -1,5 +1,6 @@
 ---
 source: src/parser/decl/type_decl.rs
+assertion_line: 207
 expression: ast
 ---
 node:
@@ -11,8 +12,8 @@ node:
         parent_name: Person
         args: ~
       span:
-        start: 2
-        end: 4
+        start: 21
+        end: 36
     features:
       - node:
           Method:
@@ -52,11 +53,11 @@ node:
                       start: 76
                       end: 89
               span:
-                start: 8
-                end: 16
+                start: 58
+                end: 106
         span:
-          start: 8
-          end: 16
+          start: 58
+          end: 106
 span:
-  start: 0
-  end: 17
+  start: 9
+  end: 116

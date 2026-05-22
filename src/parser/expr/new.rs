@@ -1,5 +1,6 @@
 use crate::ast::{Expr, ExprKind, Spanned};
-use crate::lexer::{Span, Token, TokenKind};
+use crate::lexer::{Token, TokenKind};
+use crate::parser::span_from_token_slice;
 use chumsky::{error::Rich, prelude::*};
 
 pub fn new_parser<'src>(
@@ -32,10 +33,7 @@ pub fn new_parser<'src>(
             ),
     )
     .map_with(|(type_name, args), span| {
-        let span = Span {
-            start: span.span().start(),
-            end: span.span().end(),
-        };
+        let span = span_from_token_slice(span.slice());
         Spanned::new(ExprKind::New { type_name, args }, span)
     })
 }

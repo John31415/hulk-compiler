@@ -1,5 +1,6 @@
 ---
 source: src/parser/expr/mod.rs
+assertion_line: 85
 expression: ast
 ---
 node:
@@ -108,14 +109,14 @@ node:
                                       start: 109
                                       end: 119
                               span:
-                                start: 21
-                                end: 29
+                                start: 87
+                                end: 138
                         span:
                           start: 81
-                          end: 29
+                          end: 138
                   span:
-                    start: 16
-                    end: 31
+                    start: 56
+                    end: 153
                 else_branch:
                   node:
                     If:
@@ -157,17 +158,17 @@ node:
                                 start: 217
                                 end: 222
                         span:
-                          start: 37
-                          end: 44
+                          start: 199
+                          end: 240
                   span:
                     start: 173
-                    end: 44
+                    end: 240
             span:
               start: 50
-              end: 44
+              end: 240
       span:
-        start: 11
-        end: 46
+        start: 32
+        end: 251
 span:
   start: 19
-  end: 46
+  end: 251

@@ -1,5 +1,6 @@
 use crate::ast::{Expr, ExprKind, Spanned};
-use crate::lexer::{Span, Token, TokenKind};
+use crate::lexer::{Token, TokenKind};
+use crate::parser::span_from_token_slice;
 use chumsky::{error::Rich, prelude::*};
 
 pub fn block_parser<'src>(
@@ -20,13 +21,7 @@ pub fn block_parser<'src>(
             select_ref! { Token { kind: TokenKind::RBrace, .. } => () },
         )
         .map_with(|exprs, e| {
-            Spanned::new(
-                ExprKind::Block(exprs),
-                Span {
-                    start: e.span().start,
-                    end: e.span().end,
-                },
-            )
+            Spanned::new(ExprKind::Block(exprs), span_from_token_slice(e.slice()))
         })
 }
 

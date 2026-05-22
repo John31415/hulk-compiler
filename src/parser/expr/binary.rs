@@ -1,5 +1,6 @@
 use crate::ast::{BinaryOp, BinaryOpKind, Expr, ExprKind, Spanned};
-use crate::lexer::{Span, Token, TokenKind};
+use crate::lexer::{Token, TokenKind};
+use crate::parser::span_from_token_slice;
 use chumsky::{error::Rich, prelude::*, primitive::choice, recursive::Recursive};
 
 pub fn exponent_parser<'src>(
@@ -80,10 +81,7 @@ pub fn is_parser<'src>(
             .or_not(),
         )
         .map_with(|(expr, type_name), span| {
-            let span = Span {
-                start: span.span().start(),
-                end: span.span().end(),
-            };
+            let span = span_from_token_slice(span.slice());
             match type_name {
                 Some(type_name) => Spanned::new(
                     ExprKind::Is {
@@ -117,10 +115,7 @@ pub fn as_expr_parser<'src>(
             .or_not(),
         )
         .map_with(|(expr, type_name), span| {
-            let span = Span {
-                start: span.span().start(),
-                end: span.span().end(),
-            };
+            let span = span_from_token_slice(span.slice());
             match type_name {
                 Some(type_name) => Spanned::new(
                     ExprKind::As {

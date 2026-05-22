@@ -1,6 +1,7 @@
 use crate::ast::{Decl, DeclKind, Expr, InheritInfoKind, Spanned, TypeFeaturesKind};
 use crate::lexer::{Span, Token, TokenKind};
 use crate::parser::expr::block::block_parser;
+use crate::parser::span_from_token_slice;
 use chumsky::{error::Rich, prelude::*};
 
 pub fn type_decl_parser<'src>(
@@ -48,10 +49,7 @@ pub fn type_decl_parser<'src>(
     .ignore_then(ident.clone())
     .then(parent_args.clone().or_not())
     .map_with(|(parent_name, args), span| {
-        let span = Span {
-            start: span.span().start(),
-            end: span.span().end(),
-        };
+        let span = span_from_token_slice(span.slice());
         Spanned::new(InheritInfoKind { parent_name, args }, span)
     });
     let params = ident
@@ -142,10 +140,7 @@ pub fn type_decl_parser<'src>(
     signature
         .then(features)
         .map_with(|(((name, params), parent), features), span| {
-            let span = Span {
-                start: span.span().start(),
-                end: span.span().end(),
-            };
+            let span = span_from_token_slice(span.slice());
             Spanned::new(
                 DeclKind::Type {
                     name,

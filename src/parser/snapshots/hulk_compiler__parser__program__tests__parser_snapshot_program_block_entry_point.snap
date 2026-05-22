@@ -1,5 +1,6 @@
 ---
 source: src/parser/program.rs
+assertion_line: 99
 expression: ast
 ---
 node:
@@ -29,8 +30,8 @@ node:
                 start: 26
                 end: 27
       span:
-        start: 0
-        end: 8
+        start: 9
+        end: 30
     - node:
         Function:
           name: f
@@ -50,11 +51,11 @@ node:
                     start: 55
                     end: 56
             span:
-              start: 12
-              end: 16
+              start: 53
+              end: 59
       span:
-        start: 12
-        end: 16
+        start: 53
+        end: 59
   body:
     node:
       Block:
@@ -69,8 +70,8 @@ node:
             start: 83
             end: 85
     span:
-      start: 16
-      end: 20
+      start: 69
+      end: 96
 span:
-  start: 16
-  end: 20
+  start: 69
+  end: 96

@@ -1,5 +1,6 @@
 ---
 source: src/parser/expr/postfix.rs
+assertion_line: 114
 expression: ast
 ---
 node:
@@ -18,4 +19,4 @@ node:
           end: 28
 span:
   start: 9
-  end: 14
+  end: 29

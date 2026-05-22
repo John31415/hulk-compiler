@@ -1,5 +1,6 @@
 ---
 source: src/parser/expr/mod.rs
+assertion_line: 129
 expression: ast
 ---
 node:
@@ -24,14 +25,14 @@ node:
                           start: 70
                           end: 71
                   span:
-                    start: 5
-                    end: 9
+                    start: 48
+                    end: 89
             span:
-              start: 4
-              end: 11
+              start: 31
+              end: 104
       span:
-        start: 3
-        end: 13
+        start: 17
+        end: 115
     body:
       node:
         Assign:
@@ -117,5 +118,5 @@ node:
         start: 120
         end: 140
 span:
-  start: 3
+  start: 17
   end: 140

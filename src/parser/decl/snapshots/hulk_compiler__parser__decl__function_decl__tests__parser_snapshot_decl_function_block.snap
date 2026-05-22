@@ -1,5 +1,6 @@
 ---
 source: src/parser/decl/function_decl.rs
+assertion_line: 129
 expression: ast
 ---
 node:
@@ -21,8 +22,8 @@ node:
               start: 37
               end: 38
       span:
-        start: 4
-        end: 8
+        start: 23
+        end: 49
 span:
-  start: 4
-  end: 8
+  start: 23
+  end: 49

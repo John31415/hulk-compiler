@@ -1,5 +1,6 @@
 ---
 source: src/parser/expr/mod.rs
+assertion_line: 106
 expression: ast
 ---
 node:
@@ -114,8 +115,8 @@ node:
               end: 57
           type_name: String
       span:
-        start: 1
-        end: 16
+        start: 23
+        end: 68
     - node:
         Let:
           name: a
@@ -255,5 +256,5 @@ node:
         start: 90
         end: 152
 span:
-  start: 0
-  end: 45
+  start: 9
+  end: 164
