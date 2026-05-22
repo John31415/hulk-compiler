@@ -429,5 +429,5 @@ node:
       start: 707
       end: 735
 span:
-  start: 707
-  end: 735
+  start: 1
+  end: 741

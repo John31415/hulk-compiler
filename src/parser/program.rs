@@ -1,7 +1,8 @@
 use crate::ast::{Program, ProgramKind, Spanned};
-use crate::lexer::{Span, Token, TokenKind};
+use crate::lexer::{Token, TokenKind};
 use crate::parser::decl::decl_parser;
 use crate::parser::expr::block::block_parser;
+use crate::parser::span_from_token_slice;
 use crate::parser::expr::expr_parser;
 use chumsky::{error::Rich, prelude::*};
 
@@ -29,11 +30,8 @@ pub fn program_parser<'src>()
                 ..
             } => ()
         })
-        .map(|(decls, body)| {
-            let span = Span {
-                start: body.span.start,
-                end: body.span.end,
-            };
+        .map_with(|(decls, body), span| {
+            let span = span_from_token_slice(span.slice());
             Spanned::new(ProgramKind { delcs: decls, body }, span)
         })
 }
