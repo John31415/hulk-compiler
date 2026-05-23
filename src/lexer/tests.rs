@@ -32,7 +32,7 @@ mod tests {
     fn test_lexer_string() {
         use TokenKind::*;
 
-        let input = r#"let str: String = "\\ abracadabra \n \" hello \". \q";"#;
+        let input = r#"let str: String = "\\ abracadabra \n \" hello \".";"#;
         let mut lexer = Lexer::new(input);
         let tokens = lexer.tokenize().expect("Lexer failed.");
         let kinds: Vec<TokenKind> = tokens.into_iter().map(|token| token.kind).collect();
@@ -42,7 +42,7 @@ mod tests {
             Colon,
             Identifier(String::from("String")),
             Equal,
-            LiteralString(String::from("\\ abracadabra \n \" hello \". \\q")),
+            LiteralString(String::from("\\ abracadabra \n \" hello \".")),
             Semi,
             EOF,
         ];
@@ -240,6 +240,50 @@ mod tests {
         match result {
             Err(e) => assert_eq!(e.kind, LexErrorKind::UnclosedString),
             _ => panic!("Expected error: UnclosedString."),
+        }
+    }
+
+    #[test]
+    fn test_lexer_error_leading_zero() {
+        let input = r#"let n = 01;"#;
+        let mut lexer = Lexer::new(input);
+        let result = lexer.tokenize();
+        match result {
+            Err(e) => assert_eq!(e.kind, LexErrorKind::LeadingZero),
+            _ => panic!("Expected error: LeadingZero."),
+        }
+    }
+
+    #[test]
+    fn test_lexer_error_invalide_escape() {
+        let input = r#"let n = "a \x b";"#;
+        let mut lexer = Lexer::new(input);
+        let result = lexer.tokenize();
+        match result {
+            Err(e) => assert_eq!(e.kind, LexErrorKind::InvalidEscapeSequence),
+            _ => panic!("Expected error: InvalidEscapeSequence."),
+        }
+    }
+
+    #[test]
+    fn test_lexer_error_malformed_number() {
+        let input = r#"let n = 1.;"#;
+        let mut lexer = Lexer::new(input);
+        let result = lexer.tokenize();
+        match result {
+            Err(e) => assert_eq!(e.kind, LexErrorKind::MalformedNumber),
+            _ => panic!("Expected error: MalformedNumber."),
+        }
+    }
+
+    #[test]
+    fn test_lexer_error_numeric_overflow() {
+        let input = r#"let n = 100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000;"#;
+        let mut lexer = Lexer::new(input);
+        let result = lexer.tokenize();
+        match result {
+            Err(e) => assert_eq!(e.kind, LexErrorKind::NumericOverflow),
+            _ => panic!("Expected error: NumericOverflow."),
         }
     }
 }
