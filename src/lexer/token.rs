@@ -1,8 +1,11 @@
+use crate::lexer::LexErrorKind;
+
 use super::Span;
 use logos::{Lexer, Logos};
 
 #[allow(dead_code)]
 #[derive(Logos, Debug, Clone, PartialEq)]
+#[logos(error = LexErrorKind)]
 pub enum TokenKind {
     // Spaces
     #[regex(r"[ \t\n\f]+", logos::skip)]
@@ -108,9 +111,9 @@ pub enum TokenKind {
     // Literals
     #[regex(r"[a-zA-Z][a-zA-Z0-9_]*", |lex| lex.slice().to_string())]
     Identifier(String),
-    #[regex(r"(0|[1-9][0-9]*)(\.[0-9]+)?", |lex| lex.slice().parse().ok())]
+    #[regex(r"[0-9]+[\.0-9]*", validate_process_number)]
     LiteralNumber(f64),
-    #[regex(r#""([^"\\]|\\.)*""#, process_string)]
+    #[regex(r#""([^"\\]|\\.)*(")?"#, validate_process_string)]
     LiteralString(String),
     #[token("true")]
     LiteralTrue,
@@ -121,16 +124,28 @@ pub enum TokenKind {
     EOF,
 }
 
-#[derive(Debug, PartialEq)]
-pub struct Token {
-    pub kind: TokenKind,
-    pub span: Span,
+fn validate_process_number(lex: &mut Lexer<TokenKind>) -> Result<f64, LexErrorKind> {
+    let slice = lex.slice();
+    if slice.starts_with('0') && slice.len() > 1 && !slice.starts_with("0.") {
+        return Err(LexErrorKind::LeadingZero);
+    }
+    let dot_count = slice.matches('.').count();
+    if dot_count > 1 || slice.ends_with('.') {
+        return Err(LexErrorKind::MalformedNumber);
+    }
+    match slice.parse::<f64>() {
+        Ok(val) if val.is_infinite() => Err(LexErrorKind::NumericOverflow),
+        Ok(val) => Ok(val),
+        Err(_) => Err(LexErrorKind::MalformedNumber),
+    }
 }
 
-#[allow(dead_code)]
-fn process_string(lex: &mut Lexer<TokenKind>) -> String {
-    let s = lex.slice();
-    let unquoted = &s[1..s.len() - 1];
+fn validate_process_string(lex: &mut Lexer<TokenKind>) -> Result<String, LexErrorKind> {
+    let slice = lex.slice();
+    if !slice.ends_with('"') || slice.len() < 2 {
+        return Err(LexErrorKind::UnclosedString);
+    }
+    let unquoted = &slice[1..slice.len() - 1];
     let mut result = String::with_capacity(unquoted.len());
     let mut chars = unquoted.chars().peekable();
     while let Some(c) = chars.next() {
@@ -140,15 +155,18 @@ fn process_string(lex: &mut Lexer<TokenKind>) -> String {
                 Some('t') => result.push('\t'),
                 Some('"') => result.push('"'),
                 Some('\\') => result.push('\\'),
-                Some(other) => {
-                    result.push('\\');
-                    result.push(other);
-                }
-                None => result.push('\\'),
+                Some(_invalid_char) => return Err(LexErrorKind::InvalidEscapeSequence),
+                None => return Err(LexErrorKind::UnclosedString),
             }
         } else {
             result.push(c);
         }
     }
-    result
+    Ok(result)
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Token {
+    pub kind: TokenKind,
+    pub span: Span,
 }
