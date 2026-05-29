@@ -19,7 +19,7 @@ pub type Program = Spanned<ProgramKind>;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ProgramKind {
-    pub delcs: Option<Vec<Decl>>,
+    pub decls: Option<Vec<Decl>>,
     pub body: Expr,
 }
 
