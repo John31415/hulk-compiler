@@ -32,7 +32,7 @@ pub fn program_parser<'src>()
         })
         .map_with(|(decls, body), span| {
             let span = span_from_token_slice(span.slice());
-            Spanned::new(ProgramKind { delcs: decls, body }, span)
+            Spanned::new(ProgramKind { decls: decls, body }, span)
         })
 }
 
