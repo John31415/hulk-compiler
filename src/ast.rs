@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::lexer::Span;
 use serde::Serialize;
 
@@ -176,4 +178,26 @@ pub struct VarDefKind {
     pub name: String,
     pub type_name: Option<String>,
     pub value: Expr,
+}
+
+impl fmt::Display for BinaryOpKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            BinaryOpKind::Add => write!(f, "+"),
+            BinaryOpKind::Sub => write!(f, "-"),
+            BinaryOpKind::Mul => write!(f, "*"),
+            BinaryOpKind::Div => write!(f, "/"),
+            BinaryOpKind::Pow => write!(f, "^"),
+            BinaryOpKind::Concat => write!(f, "@"),
+            BinaryOpKind::ConcatSpace => write!(f, "@@"),
+            BinaryOpKind::Less => write!(f, "<"),
+            BinaryOpKind::Greater => write!(f, ">"),
+            BinaryOpKind::LessEqual => write!(f, "<="),
+            BinaryOpKind::GreaterEqual => write!(f, ">="),
+            BinaryOpKind::DoubleEqual => write!(f, "=="),
+            BinaryOpKind::NotEqual => write!(f, "!="),
+            BinaryOpKind::And => write!(f, "&"),
+            BinaryOpKind::Or => write!(f, "|"),
+        }
+    }
 }
