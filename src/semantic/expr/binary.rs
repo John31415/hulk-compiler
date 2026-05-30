@@ -159,3 +159,105 @@ impl SemanticAnalyzer {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::semantic::{SemanticAnalyzer, error::SemanticErrorKind, test_utils::parse_program};
+
+    #[test]
+    fn semantic_unit_test_binary_err() {
+        let source = r#"
+{
+    22 + "a";
+    2 <= true;
+    3 & "a";
+    2 @ true;
+    2 == "a";
+    2 is String;
+    2 is John;
+    2 as String;
+    2 as John;
+}
+    "#;
+        let program = parse_program(source);
+        let mut analyzer = SemanticAnalyzer::new();
+        analyzer.analyze_program(
+            program.node.decls.as_deref().unwrap_or(&[]),
+            Some(&program.node.body),
+        );
+        assert_eq!(analyzer.diagnostics.len(), 10);
+        assert_eq!(
+            analyzer.diagnostics[0].kind,
+            SemanticErrorKind::InvalidOperatorOperand {
+                operator: "+".to_string(),
+                expected: "Number".to_string(),
+                found: "String".to_string()
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[1].kind,
+            SemanticErrorKind::InvalidOperatorOperand {
+                operator: "<=".to_string(),
+                expected: "Number".to_string(),
+                found: "Boolean".to_string()
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[2].kind,
+            SemanticErrorKind::InvalidOperatorOperand {
+                operator: "&".to_string(),
+                expected: "Boolean".to_string(),
+                found: "Number".to_string()
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[3].kind,
+            SemanticErrorKind::InvalidOperatorOperand {
+                operator: "&".to_string(),
+                expected: "Boolean".to_string(),
+                found: "String".to_string()
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[4].kind,
+            SemanticErrorKind::InvalidBinaryOperation {
+                operator: "@".to_string(),
+                left: "Number".to_string(),
+                right: "Boolean".to_string()
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[5].kind,
+            SemanticErrorKind::IncomparableTypes {
+                left: "Number".to_string(),
+                right: "String".to_string()
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[6].kind,
+            SemanticErrorKind::ImpossibleTypeCheck {
+                expr: "Number".to_string(),
+                target: "String".to_string()
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[7].kind,
+            SemanticErrorKind::UnknownType {
+                name: "John".to_string()
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[8].kind,
+            SemanticErrorKind::InvalidCast {
+                from: "Number".to_string(),
+                to: "String".to_string()
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[9].kind,
+            SemanticErrorKind::UnknownType {
+                name: "John".to_string()
+            }
+        );
+    }
+}
