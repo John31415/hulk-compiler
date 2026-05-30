@@ -3,7 +3,7 @@ source: src/parser/tests.rs
 expression: ast
 ---
 node:
-  delcs:
+  decls:
     - node:
         Function:
           name: aux

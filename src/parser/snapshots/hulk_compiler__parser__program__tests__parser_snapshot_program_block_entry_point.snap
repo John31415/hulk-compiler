@@ -3,7 +3,7 @@ source: src/parser/program.rs
 expression: ast
 ---
 node:
-  delcs:
+  decls:
     - node:
         Type:
           name: Point
