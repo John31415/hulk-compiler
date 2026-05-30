@@ -30,8 +30,8 @@ impl SemanticAnalyzer {
             self.diagnostics.push(
                 SemanticError::new(
                     SemanticErrorKind::TypeMismatch {
-                        expected: self.ctx.types.get(value_type).name.clone(),
-                        found: self.ctx.types.get(target_type).name.clone(),
+                        expected: self.ctx.types.get(target_type).name.clone(),
+                        found: self.ctx.types.get(value_type).name.clone(),
                     },
                     value.span,
                 )
