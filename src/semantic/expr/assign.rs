@@ -41,3 +41,41 @@ impl SemanticAnalyzer {
         value_type
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::semantic::{SemanticAnalyzer, error::SemanticErrorKind, test_utils::parse_program};
+
+    #[test]
+    fn semantic_unit_test_assign_err() {
+        let source = r#"
+type A {
+    // ...
+    f() {
+        self := new A(); // <-- Semantic error, `self` is not a valid assignment target
+        let a: Number = 1 in { a := true; };
+    }
+}
+
+42;
+        "#;
+        let program = parse_program(source);
+        let mut analyzer = SemanticAnalyzer::new();
+        analyzer.analyze_program(
+            program.node.decls.as_deref().unwrap_or(&[]),
+            Some(&program.node.body),
+        );
+        assert_eq!(analyzer.diagnostics.len(), 2);
+        assert_eq!(
+            analyzer.diagnostics[0].kind,
+            SemanticErrorKind::InvalidAssignmentTarget
+        );
+        assert_eq!(
+            analyzer.diagnostics[1].kind,
+            SemanticErrorKind::TypeMismatch {
+                expected: "Number".to_string(),
+                found: "Boolean".to_string()
+            }
+        );
+    }
+}
