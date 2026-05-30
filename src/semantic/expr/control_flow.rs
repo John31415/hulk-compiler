@@ -1,6 +1,6 @@
 use crate::ast::Expr;
-use crate::diagnostics::Diagnostic;
 use crate::lexer::span::Span;
+use crate::semantic::error::{SemanticError, SemanticErrorKind};
 use crate::semantic::symbols::{Symbol, SymbolKind, SymbolType};
 use crate::semantic::{SemanticAnalyzer, types::TypeId};
 
@@ -10,18 +10,20 @@ impl SemanticAnalyzer {
         condition: &Expr,
         then_branch: &Expr,
         else_branch: &Option<Box<Expr>>,
-        span: Span,
+        _span: Span,
     ) -> TypeId {
         let bool_type = self.resolve_builtin("Boolean");
         let cond_type = self.check_expr(condition);
         if cond_type != bool_type {
-            self.diagnostics.push(Diagnostic::error(
-                format!(
-                    "'If' condition must be 'Boolean', but found '{}'",
-                    self.ctx.types.get(cond_type).name
-                ),
-                condition.span,
-            ));
+            self.diagnostics.push(
+                SemanticError::new(
+                    SemanticErrorKind::InvalidConditionType {
+                        found: self.ctx.types.get(cond_type).name.clone(),
+                    },
+                    condition.span,
+                )
+                .into(),
+            );
         }
         let then_type = self.check_expr(then_branch);
         match else_branch {
@@ -37,13 +39,15 @@ impl SemanticAnalyzer {
         let bool_type = self.resolve_builtin("Boolean");
         let cond_type = self.check_expr(condition);
         if cond_type != bool_type {
-            self.diagnostics.push(Diagnostic::error(
-                format!(
-                    "'While' condition must be 'Boolean', but found '{}'",
-                    self.ctx.types.get(cond_type).name
-                ),
-                condition.span,
-            ));
+            self.diagnostics.push(
+                SemanticError::new(
+                    SemanticErrorKind::InvalidWhileCondition {
+                        found: self.ctx.types.get(cond_type).name.clone(),
+                    },
+                    condition.span,
+                )
+                .into(),
+            );
         }
         let body_type = self.check_expr(body);
         body_type

@@ -1,6 +1,7 @@
 use super::context::SemanticContext;
 use crate::ast::{Decl, Expr};
 use crate::diagnostics::Diagnostic;
+use crate::semantic::builtin::install_builtins;
 
 pub struct SemanticAnalyzer {
     pub ctx: SemanticContext,
@@ -16,15 +17,12 @@ impl SemanticAnalyzer {
     }
 
     pub fn analyze_program(&mut self, decls: &[Decl], entry: Option<&Expr>) {
+        install_builtins(&mut self.ctx);
         self.collect_declarations(decls);
         self.check_declarations(decls);
         if let Some(expr) = entry {
             self.check_expr(expr);
         }
-    }
-
-    pub fn push_declarations(&mut self, diagnostic: Diagnostic) {
-        self.diagnostics.push(diagnostic);
     }
 
     pub fn has_errors(&self) -> bool {

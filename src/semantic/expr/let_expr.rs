@@ -1,6 +1,6 @@
 use crate::ast::Expr;
-use crate::diagnostics::Diagnostic;
 use crate::lexer::span::Span;
+use crate::semantic::error::{SemanticError, SemanticErrorKind};
 use crate::semantic::symbols::{Symbol, SymbolKind, SymbolType};
 use crate::semantic::{SemanticAnalyzer, types::TypeId};
 
@@ -18,22 +18,29 @@ impl SemanticAnalyzer {
             Some(t_name) => match self.ctx.types.resolve(t_name) {
                 Some(id) => {
                     if !self.ctx.types.is_subtype_of(value_type, id) {
-                        self.diagnostics.push(Diagnostic::error(
-                            format!(
-                                "Type mismatch in let binding: cannot assign '{}' to explicit type '{}'",
-                                self.ctx.types.get(value_type).name,
-                                t_name,
-                            ),
-                            value.span,
-                        ));
+                        self.diagnostics.push(
+                            SemanticError::new(
+                                SemanticErrorKind::LetBindingTypeMismatch {
+                                    expected: self.ctx.types.get(value_type).name.clone(),
+                                    found: t_name.to_string(),
+                                },
+                                value.span,
+                            )
+                            .into(),
+                        );
                     }
                     id
                 }
                 None => {
-                    self.diagnostics.push(Diagnostic::error(
-                        format!("Non-existent type '{}' in let type annotation", t_name,),
-                        span,
-                    ));
+                    self.diagnostics.push(
+                        SemanticError::new(
+                            SemanticErrorKind::UnknownTypeInLetAnnotation {
+                                name: t_name.to_string(),
+                            },
+                            span,
+                        )
+                        .into(),
+                    );
                     self.ctx.types.resolve("Object").unwrap()
                 }
             },

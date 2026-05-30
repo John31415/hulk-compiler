@@ -1,5 +1,5 @@
 use crate::ast::{Expr, UnaryOp, UnaryOpKind};
-use crate::diagnostics::Diagnostic;
+use crate::semantic::error::{SemanticError, SemanticErrorKind};
 use crate::semantic::{SemanticAnalyzer, types::TypeId};
 
 impl SemanticAnalyzer {
@@ -10,25 +10,31 @@ impl SemanticAnalyzer {
         match op.node {
             UnaryOpKind::Neg => {
                 if inner_type != number_type {
-                    self.diagnostics.push(Diagnostic::error(
-                        format!(
-                            "Operator '-' cannot be applied to type '{}'",
-                            self.ctx.types.get(inner_type).name
-                        ),
-                        expr.span,
-                    ));
+                    self.diagnostics.push(
+                        SemanticError::new(
+                            SemanticErrorKind::InvalidUnaryOperation {
+                                operator: "-".to_string(),
+                                operand: self.ctx.types.get(inner_type).name.clone(),
+                            },
+                            expr.span,
+                        )
+                        .into(),
+                    );
                 }
                 number_type
             }
             UnaryOpKind::Not => {
                 if inner_type != boolean_type {
-                    self.diagnostics.push(Diagnostic::error(
-                        format!(
-                            "Operator '!' cannot be applied to type '{}'",
-                            self.ctx.types.get(inner_type).name
-                        ),
-                        expr.span,
-                    ));
+                    self.diagnostics.push(
+                        SemanticError::new(
+                            SemanticErrorKind::InvalidUnaryOperation {
+                                operator: "!".to_string(),
+                                operand: self.ctx.types.get(inner_type).name.clone(),
+                            },
+                            expr.span,
+                        )
+                        .into(),
+                    );
                 }
                 boolean_type
             }

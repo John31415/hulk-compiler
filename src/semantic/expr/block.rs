@@ -3,7 +3,7 @@ use crate::lexer::span::Span;
 use crate::semantic::{SemanticAnalyzer, types::TypeId};
 
 impl SemanticAnalyzer {
-    pub fn check_block(&mut self, expressions: &Vec<Expr>, span: Span) -> TypeId {
+    pub fn check_block(&mut self, expressions: &Vec<Expr>, _span: Span) -> TypeId {
         if expressions.is_empty() {
             return self.ctx.types.resolve("Object").unwrap();
         }

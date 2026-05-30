@@ -1,6 +1,6 @@
 use crate::ast::{Literal, LiteralKind};
-use crate::diagnostics::Diagnostic;
 use crate::lexer::span::Span;
+use crate::semantic::error::{SemanticError, SemanticErrorKind};
 use crate::semantic::{SemanticAnalyzer, symbols::SymbolType, types::TypeId};
 
 impl SemanticAnalyzer {
@@ -21,22 +21,29 @@ impl SemanticAnalyzer {
             match symbol.ty {
                 SymbolType::Variable(type_id) => type_id,
                 SymbolType::Function { .. } => {
-                    self.diagnostics.push(Diagnostic::error(
-                        format!("Identifier '{}' is a funciton, not a variable", name),
-                        span,
-                    ));
+                    self.diagnostics.push(
+                        SemanticError::new(
+                            SemanticErrorKind::NotAVariable {
+                                name: name.to_string(),
+                            },
+                            span,
+                        )
+                        .into(),
+                    );
                     self.ctx.types.resolve("Object").unwrap()
                 }
                 SymbolType::Unknown => self.ctx.types.resolve("Object").unwrap(),
             }
         } else {
-            self.diagnostics.push(Diagnostic::error(
-                format!(
-                    "Variable, parameter or attribute '{}' is not defined in this scope",
-                    name
-                ),
-                span,
-            ));
+            self.diagnostics.push(
+                SemanticError::new(
+                    SemanticErrorKind::UndefinedVariable {
+                        name: name.to_string(),
+                    },
+                    span,
+                )
+                .into(),
+            );
             self.ctx.types.resolve("Object").unwrap()
         }
     }

@@ -1,6 +1,6 @@
 use crate::ast::{BinaryOp, BinaryOpKind, Expr};
-use crate::diagnostics::Diagnostic;
 use crate::lexer::span::Span;
+use crate::semantic::error::{SemanticError, SemanticErrorKind};
 use crate::semantic::{SemanticAnalyzer, types::TypeId};
 
 impl SemanticAnalyzer {
@@ -38,15 +38,17 @@ impl SemanticAnalyzer {
 
             BinaryOpKind::Concat | BinaryOpKind::ConcatSpace => {
                 if left_type != string_type && right_type != string_type {
-                    self.diagnostics.push(Diagnostic::error(
-                        format!(
-                            "Operator '{}' requires at least one String operand, but found left: '{}', right: '{}'",
-                            op.node,
-                            self.ctx.types.get(left_type).name,
-                            self.ctx.types.get(right_type).name,
-                        ),
-                        left.span.union(&right.span),
-                    ));
+                    self.diagnostics.push(
+                        SemanticError::new(
+                            SemanticErrorKind::InvalidBinaryOperation {
+                                operator: op.node.to_string(),
+                                left: self.ctx.types.get(left_type).name.clone(),
+                                right: self.ctx.types.get(right_type).name.clone(),
+                            },
+                            left.span.union(&right.span),
+                        )
+                        .into(),
+                    );
                 }
                 string_type
             }
@@ -55,14 +57,16 @@ impl SemanticAnalyzer {
                 if !self.ctx.types.is_subtype_of(left_type, right_type)
                     && !self.ctx.types.is_subtype_of(right_type, left_type)
                 {
-                    self.diagnostics.push(Diagnostic::error(
-                        format!(
-                            "Cannot compare completely unrelated types: '{}' and '{}'",
-                            self.ctx.types.get(left_type).name,
-                            self.ctx.types.get(right_type).name,
-                        ),
-                        left.span.union(&right.span),
-                    ));
+                    self.diagnostics.push(
+                        SemanticError::new(
+                            SemanticErrorKind::IncomparableTypes {
+                                left: self.ctx.types.get(left_type).name.clone(),
+                                right: self.ctx.types.get(right_type).name.clone(),
+                            },
+                            left.span.union(&right.span),
+                        )
+                        .into(),
+                    );
                 }
                 boolean_type
             }
@@ -77,21 +81,28 @@ impl SemanticAnalyzer {
                 if !self.ctx.types.is_subtype_of(expr_type, target_type)
                     && !self.ctx.types.is_subtype_of(target_type, expr_type)
                 {
-                    self.diagnostics.push(Diagnostic::error(
-                        format!(
-                            "Expression of type '{}' can never be an instance of '{}'",
-                            self.ctx.types.get(expr_type).name,
-                            type_name,
-                        ),
-                        span,
-                    ));
+                    self.diagnostics.push(
+                        SemanticError::new(
+                            SemanticErrorKind::ImpossibleTypeCheck {
+                                expr: self.ctx.types.get(expr_type).name.clone(),
+                                target: type_name.to_string(),
+                            },
+                            span,
+                        )
+                        .into(),
+                    );
                 }
             }
             None => {
-                self.diagnostics.push(Diagnostic::error(
-                    format!("Type '{}' does not exist in the current scope", type_name),
-                    span,
-                ));
+                self.diagnostics.push(
+                    SemanticError::new(
+                        SemanticErrorKind::UnknownType {
+                            name: type_name.to_string(),
+                        },
+                        span,
+                    )
+                    .into(),
+                );
             }
         }
         bool_type
@@ -104,22 +115,29 @@ impl SemanticAnalyzer {
                 if !self.ctx.types.is_subtype_of(expr_type, target_type)
                     && !self.ctx.types.is_subtype_of(target_type, expr_type)
                 {
-                    self.diagnostics.push(Diagnostic::error(
-                        format!(
-                            "Cannot cast expression of type '{}' to completely unrelated type '{}'",
-                            self.ctx.types.get(expr_type).name,
-                            type_name,
-                        ),
-                        span,
-                    ));
+                    self.diagnostics.push(
+                        SemanticError::new(
+                            SemanticErrorKind::InvalidCast {
+                                from: self.ctx.types.get(expr_type).name.clone(),
+                                to: type_name.to_string(),
+                            },
+                            span,
+                        )
+                        .into(),
+                    );
                 }
                 target_type
             }
             None => {
-                self.diagnostics.push(Diagnostic::error(
-                    format!("Type '{}' does not exist in the current scope", type_name),
-                    span,
-                ));
+                self.diagnostics.push(
+                    SemanticError::new(
+                        SemanticErrorKind::UnknownType {
+                            name: type_name.to_string(),
+                        },
+                        span,
+                    )
+                    .into(),
+                );
                 self.ctx.types.resolve("Object").unwrap()
             }
         }
@@ -127,15 +145,17 @@ impl SemanticAnalyzer {
 
     fn enforce_type(&mut self, current: TypeId, expected: TypeId, span: Span, op: &BinaryOp) {
         if current != expected {
-            self.diagnostics.push(Diagnostic::error(
-                format!(
-                    "Operator '{}' expects type '{}', but found '{}'",
-                    op.node,
-                    self.ctx.types.get(expected).name,
-                    self.ctx.types.get(current).name
-                ),
-                span,
-            ));
+            self.diagnostics.push(
+                SemanticError::new(
+                    SemanticErrorKind::InvalidOperatorOperand {
+                        operator: op.node.to_string(),
+                        expected: self.ctx.types.get(expected).name.clone(),
+                        found: self.ctx.types.get(current).name.clone(),
+                    },
+                    span,
+                )
+                .into(),
+            );
         }
     }
 }

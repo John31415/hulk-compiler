@@ -1,5 +1,5 @@
 use crate::ast::{Expr, ExprKind};
-use crate::diagnostics::Diagnostic;
+use crate::semantic::error::{SemanticError, SemanticErrorKind};
 use crate::semantic::{SemanticAnalyzer, types::TypeId};
 
 impl SemanticAnalyzer {
@@ -7,10 +7,10 @@ impl SemanticAnalyzer {
         let target_type = match &target.node {
             ExprKind::Variable(name) => {
                 if name == "self" {
-                    self.diagnostics.push(Diagnostic::error(
-                        format!("Cannot assign to 'self' because it is read-only"),
-                        target.span,
-                    ));
+                    self.diagnostics.push(
+                        SemanticError::new(SemanticErrorKind::InvalidAssignmentTarget, target.span)
+                            .into(),
+                    );
                     self.check_expr(value);
                     return self.ctx.types.resolve("Object").unwrap();
                 }
@@ -18,23 +18,25 @@ impl SemanticAnalyzer {
             }
             ExprKind::PropertyAccess { .. } => self.check_expr(target),
             _ => {
-                self.diagnostics.push(Diagnostic::error(
-                    format!("Left-hand side of assignment must be a variable or a property"),
-                    target.span,
-                ));
+                self.diagnostics.push(
+                    SemanticError::new(SemanticErrorKind::InvalidAssignmentTarget, target.span)
+                        .into(),
+                );
                 self.ctx.types.resolve("Object").unwrap()
             }
         };
         let value_type = self.check_expr(value);
         if !self.ctx.types.is_subtype_of(value_type, target_type) {
-            self.diagnostics.push(Diagnostic::error(
-                format!(
-                    "Cannot assign type '{}' to a target of type '{}'",
-                    self.ctx.types.get(value_type).name,
-                    self.ctx.types.get(target_type).name,
-                ),
-                value.span,
-            ));
+            self.diagnostics.push(
+                SemanticError::new(
+                    SemanticErrorKind::TypeMismatch {
+                        expected: self.ctx.types.get(value_type).name.clone(),
+                        found: self.ctx.types.get(target_type).name.clone(),
+                    },
+                    value.span,
+                )
+                .into(),
+            );
         }
         value_type
     }

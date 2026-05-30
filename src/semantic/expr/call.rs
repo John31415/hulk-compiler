@@ -1,6 +1,6 @@
 use crate::ast::Expr;
-use crate::diagnostics::Diagnostic;
 use crate::lexer::span::Span;
+use crate::semantic::error::{SemanticError, SemanticErrorKind};
 use crate::semantic::symbols::SymbolType;
 use crate::semantic::{analyzer::SemanticAnalyzer, types::TypeId};
 
@@ -10,10 +10,15 @@ impl SemanticAnalyzer {
             match &symbol.ty {
                 SymbolType::Function { params, ret } => Some((params.clone(), *ret)),
                 SymbolType::Variable(_) => {
-                    self.diagnostics.push(Diagnostic::error(
-                        format!("Identifier '{}' is a variable, not a function", name),
-                        span,
-                    ));
+                    self.diagnostics.push(
+                        SemanticError::new(
+                            SemanticErrorKind::NotAFunction {
+                                name: name.to_string(),
+                            },
+                            span,
+                        )
+                        .into(),
+                    );
                     return self.ctx.types.resolve("Object").unwrap();
                 }
                 SymbolType::Unknown => {
@@ -31,47 +36,61 @@ impl SemanticAnalyzer {
                     {
                         (params, ret)
                     } else {
-                        self.diagnostics.push(Diagnostic::error(
-                            format!("Function or method '{}' is not defined in this scope", name),
-                            span,
-                        ));
+                        self.diagnostics.push(
+                            SemanticError::new(
+                                SemanticErrorKind::UndefinedFunction {
+                                    name: name.to_string(),
+                                },
+                                span,
+                            )
+                            .into(),
+                        );
                         return self.ctx.types.resolve("Object").unwrap();
                     }
                 } else {
-                    self.diagnostics.push(Diagnostic::error(
-                        format!("Function '{}' is not defined in this scope", name),
-                        span,
-                    ));
+                    self.diagnostics.push(
+                        SemanticError::new(
+                            SemanticErrorKind::UndefinedFunction {
+                                name: name.to_string(),
+                            },
+                            span,
+                        )
+                        .into(),
+                    );
                     return self.ctx.types.resolve("Object").unwrap();
                 }
             }
         };
         if args.len() != param_types.len() {
-            self.diagnostics.push(Diagnostic::error(
-                format!(
-                    "Function '{}' expects '{}' arguments, but '{}' were provided",
-                    name,
-                    param_types.len(),
-                    args.len()
-                ),
-                span,
-            ));
+            self.diagnostics.push(
+                SemanticError::new(
+                    SemanticErrorKind::InvalidFunctionArity {
+                        name: name.to_string(),
+                        expected: param_types.len(),
+                        found: args.len(),
+                    },
+                    span,
+                )
+                .into(),
+            );
         }
         for (i, arg) in args.iter().enumerate() {
             let arg_type = self.check_expr(arg);
             if i < param_types.len() {
                 let expected_type = param_types[i];
                 if !self.ctx.types.is_subtype_of(arg_type, expected_type) {
-                    self.diagnostics.push(Diagnostic::error(
-                        format!(
-                            "Type mismatch in call to '{}': argument '{}' expects '{}', found '{}'",
-                            name,
-                            i + 1,
-                            self.ctx.types.get(expected_type).name,
-                            self.ctx.types.get(arg_type).name
-                        ),
-                        arg.span,
-                    ));
+                    self.diagnostics.push(
+                        SemanticError::new(
+                            SemanticErrorKind::FunctionArgumentTypeMismatch {
+                                name: name.to_string(),
+                                index: i + 1,
+                                expected: self.ctx.types.get(expected_type).name.clone(),
+                                found: self.ctx.types.get(arg_type).name.clone(),
+                            },
+                            arg.span,
+                        )
+                        .into(),
+                    );
                     return self.ctx.types.resolve("Object").unwrap();
                 }
             }
@@ -79,44 +98,40 @@ impl SemanticAnalyzer {
         return_type
     }
 
-    pub fn check_base_call(&mut self, name: &str, args: &Vec<Expr>, span: Span) -> TypeId {
+    pub fn check_base_call(&mut self, _name: &str, args: &Vec<Expr>, span: Span) -> TypeId {
         let current_type_id = match self.ctx.current_type {
             Some(id) => id,
             None => {
-                self.diagnostics.push(Diagnostic::error(
-                    format!("base() can only be used inside a class method"),
-                    span,
-                ));
+                self.diagnostics
+                    .push(SemanticError::new(SemanticErrorKind::InvalidBaseUsage, span).into());
                 return self.ctx.types.resolve("Object").unwrap();
             }
         };
         let current_method_name = match &self.ctx.current_method {
             Some(m) => m,
             None => {
-                self.diagnostics.push(Diagnostic::error(
-                    format!("base() can only be used inside a class method"),
-                    span,
-                ));
+                self.diagnostics
+                    .push(SemanticError::new(SemanticErrorKind::InvalidBaseUsage, span).into());
                 return self.ctx.types.resolve("Object").unwrap();
             }
         };
         if !args.is_empty() {
-            self.diagnostics.push(Diagnostic::error(
-                format!("base() does not take explicit arguments"),
-                span,
-            ));
+            self.diagnostics
+                .push(SemanticError::new(SemanticErrorKind::BaseTakesNoArguments, span).into());
         }
         match self.find_closest_ancestor_method(current_type_id, current_method_name) {
             Some(ancestor_return_type) => ancestor_return_type,
             None => {
-                self.diagnostics.push(Diagnostic::error(
-                    format!(
-                        "No ancestor of type '{}' implements the method '{}'",
-                        self.ctx.types.get(current_type_id).name,
-                        current_method_name
-                    ),
-                    span,
-                ));
+                self.diagnostics.push(
+                    SemanticError::new(
+                        SemanticErrorKind::UndefinedBaseMethod {
+                            type_name: self.ctx.types.get(current_type_id).name.clone(),
+                            method: current_method_name.to_string(),
+                        },
+                        span,
+                    )
+                    .into(),
+                );
                 self.ctx.types.resolve("Object").unwrap()
             }
         }
