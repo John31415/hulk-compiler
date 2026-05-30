@@ -5,19 +5,14 @@ use crate::lexer::Span;
 pub enum SymbolKind {
     Variable,
     Function,
-    Type,
     Parameter,
     Attribute,
-    Method,
 }
 
 #[derive(Debug, Clone)]
 pub enum SymbolType {
     Variable(TypeId),
-    Function {
-        params: Vec<TypeId>,
-        ret: TypeId,
-    },
+    Function { params: Vec<TypeId>, ret: TypeId },
     Unknown,
 }
 
