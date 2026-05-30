@@ -19,3 +19,29 @@ impl SemanticAnalyzer {
         last_type_id
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::semantic::{SemanticAnalyzer, test_utils::parse_program};
+
+    #[test]
+    fn semantic_unit_test_assign_err() {
+        let source = r#"
+{
+    {
+       42;
+    };
+    {
+       42;
+    };
+}
+        "#;
+        let program = parse_program(source);
+        let mut analyzer = SemanticAnalyzer::new();
+        analyzer.analyze_program(
+            program.node.decls.as_deref().unwrap_or(&[]),
+            Some(&program.node.body),
+        );
+        assert_eq!(analyzer.diagnostics.len(), 0);
+    }
+}
