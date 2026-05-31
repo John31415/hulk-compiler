@@ -21,8 +21,8 @@ impl SemanticAnalyzer {
                         self.diagnostics.push(
                             SemanticError::new(
                                 SemanticErrorKind::LetBindingTypeMismatch {
-                                    expected: self.ctx.types.get(value_type).name.clone(),
-                                    found: t_name.to_string(),
+                                    found: self.ctx.types.get(value_type).name.clone(),
+                                    expected: t_name.to_string(),
                                 },
                                 value.span,
                             )
@@ -56,5 +56,48 @@ impl SemanticAnalyzer {
         let body_type = self.check_expr(body);
         self.ctx.pop_scope();
         body_type
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::semantic::{SemanticAnalyzer, error::SemanticErrorKind, test_utils::parse_program};
+
+    #[test]
+    fn semantic_unit_test_control_flow() {
+        let source = r#"
+{
+    let x: Number = "hello" in 42;
+    let y: String = true in 42;
+    let z: John = 1 in 42;
+}
+        "#;
+        let program = parse_program(source);
+        let mut analyzer = SemanticAnalyzer::new();
+        analyzer.analyze_program(
+            program.node.decls.as_deref().unwrap_or(&[]),
+            Some(&program.node.body),
+        );
+        assert_eq!(analyzer.diagnostics.len(), 3);
+        assert_eq!(
+            analyzer.diagnostics[0].kind,
+            SemanticErrorKind::LetBindingTypeMismatch {
+                expected: "Number".to_string(),
+                found: "String".to_string()
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[1].kind,
+            SemanticErrorKind::LetBindingTypeMismatch {
+                expected: "String".to_string(),
+                found: "Boolean".to_string()
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[2].kind,
+            SemanticErrorKind::UnknownTypeInLetAnnotation {
+                name: "John".to_string()
+            }
+        );
     }
 }
