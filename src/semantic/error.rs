@@ -194,13 +194,19 @@ pub enum SemanticErrorKind {
     },
     InvalidOverrideArity {
         method: String,
+        found: usize,
+        expected: usize,
     },
     InvalidOverrideReturnType {
         method: String,
+        found: String,
+        expected: String,
     },
     InvalidOverrideParameterType {
         method: String,
-        index: usize,
+        param_name: String,
+        found: String,
+        expected: String,
     },
     InvalidPropertyAccess,
 }
@@ -514,22 +520,35 @@ impl SemanticErrorKind {
                     type_name, param, method
                 )
             }
-            Self::InvalidOverrideArity { method } => {
+            Self::InvalidOverrideArity {
+                method,
+                found,
+                expected,
+            } => {
                 format!(
-                    "override method '{}' has a different number of parameters the its parent type",
-                    method,
+                    "override method '{}' has '{}' parameter(s), but its parent declaration expects '{}'",
+                    method, found, expected
                 )
             }
-            Self::InvalidOverrideReturnType { method } => {
+            Self::InvalidOverrideReturnType {
+                method,
+                found,
+                expected,
+            } => {
                 format!(
-                    "return type of override method '{}' does not match that of the parent class",
-                    method,
+                    "the return type '{}' of override method '{}' does not match the parent's expected return type '{}'",
+                    found, method, expected
                 )
             }
-            Self::InvalidOverrideParameterType { method, index } => {
+            Self::InvalidOverrideParameterType {
+                method,
+                param_name,
+                found,
+                expected,
+            } => {
                 format!(
-                    "parameter '{}' of override method '{}' does not match parent method type",
-                    index, method
+                    "parameter '{}' of override method '{}' has type '{}', but parent method expects '{}'",
+                    param_name, method, found, expected
                 )
             }
             Self::InvalidPropertyAccess => {
