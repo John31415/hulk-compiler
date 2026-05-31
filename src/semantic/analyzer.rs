@@ -2,10 +2,11 @@ use super::context::SemanticContext;
 use crate::ast::{Decl, Expr};
 use crate::diagnostics::Diagnostic;
 use crate::semantic::builtin::install_builtins;
+use crate::semantic::error::SemanticError;
 
 pub struct SemanticAnalyzer {
     pub ctx: SemanticContext,
-    pub diagnostics: Vec<Diagnostic>,
+    pub diagnostics: Vec<SemanticError>,
 }
 
 impl SemanticAnalyzer {
