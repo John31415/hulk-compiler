@@ -31,3 +31,58 @@ impl SemanticAnalyzer {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::semantic::{SemanticAnalyzer, error::SemanticErrorKind, test_utils::parse_program};
+
+    #[test]
+    fn semantic_unit_test_circular_inheritance_ok() {
+        let source = r#"
+type A inherits B {}
+type B inherits C {}
+type C inherits D {}
+type E inherits D {}
+type F inherits A {}
+type X inherits E {}
+type D {}
+
+42;
+        "#;
+        let program = parse_program(source);
+        let mut analyzer = SemanticAnalyzer::new();
+        analyzer.analyze_program(
+            program.node.decls.as_deref().unwrap_or(&[]),
+            Some(&program.node.body),
+        );
+        assert_eq!(analyzer.diagnostics.len(), 0);
+    }
+
+    #[test]
+    fn semantic_unit_test_circular_inheritance_err() {
+        let source = r#"
+type A inherits B {}
+type B inherits C {}
+type C inherits D {}
+type E inherits D {}
+type F inherits A {}
+type X inherits E {}
+type D inherits F {}
+
+42;
+        "#;
+        let program = parse_program(source);
+        let mut analyzer = SemanticAnalyzer::new();
+        analyzer.analyze_program(
+            program.node.decls.as_deref().unwrap_or(&[]),
+            Some(&program.node.body),
+        );
+        assert_eq!(analyzer.diagnostics.len(), 1);
+        assert_eq!(
+            analyzer.diagnostics[0].kind,
+            SemanticErrorKind::CyclicInheritance {
+                name: "A".to_string()
+            }
+        );
+    }
+}
