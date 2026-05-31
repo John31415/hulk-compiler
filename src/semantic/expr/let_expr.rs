@@ -64,7 +64,7 @@ mod tests {
     use crate::semantic::{SemanticAnalyzer, error::SemanticErrorKind, test_utils::parse_program};
 
     #[test]
-    fn semantic_unit_test_control_flow() {
+    fn semantic_unit_test_let_expr() {
         let source = r#"
 {
     let x: Number = "hello" in 42;

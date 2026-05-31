@@ -62,3 +62,63 @@ impl SemanticAnalyzer {
         instance_type_id
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::semantic::{SemanticAnalyzer, error::SemanticErrorKind, test_utils::parse_program};
+
+    #[test]
+    fn semantic_unit_test_new() {
+        let source = r#"
+type A(a: Number) {
+    x = a;
+}
+        
+{
+    new John();
+    new A(1);
+    new A();
+    new A(1, "hello");
+    new A("hello");
+}
+        "#;
+        let program = parse_program(source);
+        let mut analyzer = SemanticAnalyzer::new();
+        analyzer.analyze_program(
+            program.node.decls.as_deref().unwrap_or(&[]),
+            Some(&program.node.body),
+        );
+        assert_eq!(analyzer.diagnostics.len(), 4);
+        assert_eq!(
+            analyzer.diagnostics[0].kind,
+            SemanticErrorKind::UnknownType {
+                name: "John".to_string()
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[1].kind,
+            SemanticErrorKind::InvalidConstructorArity {
+                type_name: "A".to_string(),
+                expected: 1,
+                found: 0
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[2].kind,
+            SemanticErrorKind::InvalidConstructorArity {
+                type_name: "A".to_string(),
+                expected: 1,
+                found: 2
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[3].kind,
+            SemanticErrorKind::ConstructorArgumentTypeMismatch {
+                type_name: "A".to_string(),
+                param: "a".to_string(),
+                expected: "Number".to_string(),
+                found: "String".to_string()
+            }
+        );
+    }
+}
