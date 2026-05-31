@@ -27,16 +27,18 @@ impl SemanticAnalyzer {
                         .as_ref()
                         .and_then(|t| self.ctx.types.resolve(t))
                         .unwrap_or_else(|| self.ctx.types.resolve("Object").unwrap());
-                    let updated_symbol = Symbol {
-                        name: name.clone(),
-                        kind: SymbolKind::Function,
-                        ty: SymbolType::Function {
-                            params: param_types,
-                            ret: ret_type,
-                        },
-                        span: decl.span,
+                    let new_ty = SymbolType::Function {
+                        params: param_types,
+                        ret: ret_type,
                     };
-                    self.ctx.declare(updated_symbol);
+                    if !self.ctx.update_symbol_type(name, new_ty.clone()) {
+                        self.ctx.declare(Symbol {
+                            name: name.clone(),
+                            kind: SymbolKind::Function,
+                            ty: new_ty,
+                            span: decl.span,
+                        });
+                    }
                 }
                 DeclKind::Type {
                     name,
