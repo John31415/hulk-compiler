@@ -25,7 +25,7 @@ mod tests {
     use crate::semantic::{SemanticAnalyzer, test_utils::parse_program};
 
     #[test]
-    fn semantic_unit_test_assign_err() {
+    fn semantic_unit_test_assign_ok() {
         let source = r#"
 {
     {
