@@ -32,7 +32,6 @@ impl SemanticAnalyzer {
                     );
                     self.ctx.types.resolve("Object").unwrap()
                 }
-                SymbolType::Unknown => self.ctx.types.resolve("Object").unwrap(),
             }
         } else {
             self.diagnostics.push(
