@@ -68,3 +68,37 @@ impl SemanticAnalyzer {
         body_type
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::semantic::{SemanticAnalyzer, error::SemanticErrorKind, test_utils::parse_program};
+
+    #[test]
+    fn semantic_unit_test_control_flow() {
+        let source = r#"
+{
+    if(42) { 42; } else { 42; };
+    while("hello") { 42; };
+}
+        "#;
+        let program = parse_program(source);
+        let mut analyzer = SemanticAnalyzer::new();
+        analyzer.analyze_program(
+            program.node.decls.as_deref().unwrap_or(&[]),
+            Some(&program.node.body),
+        );
+        assert_eq!(analyzer.diagnostics.len(), 2);
+        assert_eq!(
+            analyzer.diagnostics[0].kind,
+            SemanticErrorKind::InvalidConditionType {
+                found: "Number".to_string()
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[1].kind,
+            SemanticErrorKind::InvalidWhileCondition {
+                found: "String".to_string()
+            }
+        );
+    }
+}
