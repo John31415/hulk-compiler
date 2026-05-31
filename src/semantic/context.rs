@@ -1,3 +1,5 @@
+use crate::semantic::symbols::SymbolType;
+
 use super::{
     symbols::Symbol,
     types::{TypeId, TypeTable},
@@ -6,6 +8,12 @@ use std::collections::HashMap;
 
 pub struct Scope {
     pub symbols: HashMap<String, Symbol>,
+}
+
+impl Scope {
+    pub fn get_mut(&mut self, name: &str) -> Option<&mut Symbol> {
+        self.symbols.get_mut(name)
+    }
 }
 
 pub struct SemanticContext {
@@ -55,5 +63,15 @@ impl SemanticContext {
             }
         }
         None
+    }
+
+    pub fn update_symbol_type(&mut self, name: &str, new_ty: SymbolType) -> bool {
+        for scope in self.scopes.iter_mut().rev() {
+            if let Some(symbol) = scope.get_mut(name) {
+                symbol.ty = new_ty;
+                return true;
+            }
+        }
+        false
     }
 }
