@@ -5,13 +5,18 @@ use crate::semantic::symbols::{Symbol, SymbolKind, SymbolType};
 
 impl SemanticAnalyzer {
     pub fn collect_declarations(&mut self, decls: &[Decl]) {
+        let object_type = self.ctx.types.resolve("Object").unwrap();
         for decl in decls {
             match &decl.node {
-                DeclKind::Function { name, .. } => {
+                DeclKind::Function { name, params, .. } => {
+                    let dummy_params = vec![object_type; params.len()];
                     let ok = self.ctx.declare(Symbol {
                         name: name.clone(),
                         kind: SymbolKind::Function,
-                        ty: SymbolType::Unknown,
+                        ty: SymbolType::Function {
+                            params: dummy_params,
+                            ret: object_type,
+                        },
                         span: decl.span,
                     });
                     if !ok {
