@@ -96,8 +96,8 @@ impl SemanticAnalyzer {
                     SemanticError::new(
                         SemanticErrorKind::FunctionReturnTypeMismatch {
                             function: name.to_string(),
-                            expected: self.ctx.types.get(body_type).name.clone(),
-                            found: self.ctx.types.get(expected_return).name.clone(),
+                            expected: self.ctx.types.get(expected_return).name.clone(),
+                            found: self.ctx.types.get(body_type).name.clone(),
                         },
                         body.span,
                     )
@@ -449,25 +449,28 @@ impl SemanticAnalyzer {
                     SemanticError::new(
                         SemanticErrorKind::InvalidOverrideArity {
                             method: method_name.to_string(),
+                            found: current_params.len(),
+                            expected: parent_params.len(),
                         },
                         span,
                     )
                     .into(),
                 );
-                return;
             }
             if current_ret != *parent_ret {
                 self.diagnostics.push(
                     SemanticError::new(
                         SemanticErrorKind::InvalidOverrideReturnType {
                             method: method_name.to_string(),
+                            found: self.ctx.types.get(current_ret).name.clone(),
+                            expected: self.ctx.types.get(*parent_ret).name.clone(),
                         },
                         span,
                     )
                     .into(),
                 );
             }
-            for (i, (_, p_type_opt)) in current_params.iter().enumerate() {
+            for (i, (p_name, p_type_opt)) in current_params.iter().enumerate() {
                 let current_p_id = p_type_opt
                     .as_ref()
                     .and_then(|t| self.ctx.types.resolve(t))
@@ -477,7 +480,9 @@ impl SemanticAnalyzer {
                         SemanticError::new(
                             SemanticErrorKind::InvalidOverrideParameterType {
                                 method: method_name.to_string(),
-                                index: i + 1,
+                                param_name: p_name.to_string(),
+                                found: self.ctx.types.get(current_p_id).name.clone(),
+                                expected: self.ctx.types.get(parent_params[i]).name.clone(),
                             },
                             span,
                         )
@@ -486,5 +491,272 @@ impl SemanticAnalyzer {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::semantic::{SemanticAnalyzer, error::SemanticErrorKind, test_utils::parse_program};
+
+    #[test]
+    fn semantic_unit_test_check_function_err() {
+        let source = r#"
+function f(x: John, x: Number): John {}
+
+function a(): Number {
+    42;
+    "hello";
+}
+
+42;
+        "#;
+        let program = parse_program(source);
+        let mut analyzer = SemanticAnalyzer::new();
+        analyzer.analyze_program(
+            program.node.decls.as_deref().unwrap_or(&[]),
+            Some(&program.node.body),
+        );
+        assert_eq!(analyzer.diagnostics.len(), 4);
+        assert_eq!(
+            analyzer.diagnostics[0].kind,
+            SemanticErrorKind::UnknownTypeInParameter {
+                type_name: "John".to_string(),
+                param_name: "x".to_string()
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[1].kind,
+            SemanticErrorKind::DuplicateParameter {
+                function: "f".to_string(),
+                param: "x".to_string()
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[2].kind,
+            SemanticErrorKind::UnknownReturnType {
+                function: "f".to_string(),
+                type_name: "John".to_string()
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[3].kind,
+            SemanticErrorKind::FunctionReturnTypeMismatch {
+                function: "a".to_string(),
+                expected: "Number".to_string(),
+                found: "String".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn semantic_unit_test_check_type_err() {
+        let source = r#"
+type A(a: B, a: Number) {}
+
+42;
+        "#;
+        let program = parse_program(source);
+        let mut analyzer = SemanticAnalyzer::new();
+        analyzer.analyze_program(
+            program.node.decls.as_deref().unwrap_or(&[]),
+            Some(&program.node.body),
+        );
+        assert_eq!(analyzer.diagnostics.len(), 2);
+        assert_eq!(
+            analyzer.diagnostics[0].kind,
+            SemanticErrorKind::UnknownTypeInFunctionParameter {
+                function: "A".to_string(),
+                param: "a".to_string(),
+                type_name: "B".to_string()
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[1].kind,
+            SemanticErrorKind::DuplicateConstructorParameter {
+                type_name: "A".to_string(),
+                param: "a".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn semantic_unit_test_check_type_inheritance_err() {
+        let source = r#"
+type B(a: Number) {}
+type C inherits B(1, 2) {}
+type D inherits B("hello") {}
+type E inherits John {}
+
+42;
+        "#;
+        let program = parse_program(source);
+        let mut analyzer = SemanticAnalyzer::new();
+        analyzer.analyze_program(
+            program.node.decls.as_deref().unwrap_or(&[]),
+            Some(&program.node.body),
+        );
+        assert_eq!(analyzer.diagnostics.len(), 3);
+        assert_eq!(
+            analyzer.diagnostics[0].kind,
+            SemanticErrorKind::InvalidInheritanceArity {
+                parent: "B".to_string(),
+                expected: 1,
+                found: 2
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[1].kind,
+            SemanticErrorKind::InheritanceArgumentTypeMismatch {
+                parent: "B".to_string(),
+                param: "a".to_string(),
+                expected: "Number".to_string(),
+                found: "String".to_string()
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[2].kind,
+            SemanticErrorKind::UnknownParentType {
+                child: "E".to_string(),
+                parent: "John".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn semantic_unit_test_check_type_attributes_err() {
+        let source = r#"
+type E {
+    e: John = 1;
+    f: Number = "hello";
+    f = 2;
+}
+
+42;
+        "#;
+        let program = parse_program(source);
+        let mut analyzer = SemanticAnalyzer::new();
+        analyzer.analyze_program(
+            program.node.decls.as_deref().unwrap_or(&[]),
+            Some(&program.node.body),
+        );
+        assert_eq!(analyzer.diagnostics.len(), 3);
+        assert_eq!(
+            analyzer.diagnostics[0].kind,
+            SemanticErrorKind::UnknownTypeInAttribute {
+                type_name: "John".to_string(),
+                attribute: "e".to_string()
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[1].kind,
+            SemanticErrorKind::AttributeTypeMismatch {
+                attribute: "f".to_string(),
+                expected: "Number".to_string(),
+                found: "String".to_string()
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[2].kind,
+            SemanticErrorKind::DuplicateAttribute {
+                type_name: "E".to_string(),
+                attribute: "f".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn semantic_unit_test_check_type_method_err() {
+        let source = r#"
+type E {
+    m(a: John): John => 1;
+    n(): Number => "hello";
+}
+
+42;
+        "#;
+        let program = parse_program(source);
+        let mut analyzer = SemanticAnalyzer::new();
+        analyzer.analyze_program(
+            program.node.decls.as_deref().unwrap_or(&[]),
+            Some(&program.node.body),
+        );
+        assert_eq!(analyzer.diagnostics.len(), 3);
+        assert_eq!(
+            analyzer.diagnostics[0].kind,
+            SemanticErrorKind::UnknownTypeInMethodParameter {
+                method: "m".to_string(),
+                param: "a".to_string(),
+                type_name: "John".to_string()
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[1].kind,
+            SemanticErrorKind::UnknownReturnTypeInMethod {
+                method: "m".to_string(),
+                type_name: "John".to_string()
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[2].kind,
+            SemanticErrorKind::MethodReturnTypeMismatch {
+                method: "n".to_string(),
+                expected: "Number".to_string(),
+                found: "String".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn semantic_unit_test_check_type_method_override_ok() {
+        let source = r#"
+type A() {
+    f(x: Number): Number => x;
+}
+
+type B inherits A {
+    f(): String => "hello";
+}
+
+type C inherits A {
+    f(x: Boolean): Number => 1;
+}
+
+42;
+        "#;
+        let program = parse_program(source);
+        let mut analyzer = SemanticAnalyzer::new();
+        analyzer.analyze_program(
+            program.node.decls.as_deref().unwrap_or(&[]),
+            Some(&program.node.body),
+        );
+        for semantic_error in &analyzer.diagnostics {
+            println!("{:?}", semantic_error);
+        }
+        assert_eq!(analyzer.diagnostics.len(), 3);
+        assert_eq!(
+            analyzer.diagnostics[0].kind,
+            SemanticErrorKind::InvalidOverrideArity {
+                method: "f".to_string(),
+                found: 0,
+                expected: 1
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[1].kind,
+            SemanticErrorKind::InvalidOverrideReturnType {
+                method: "f".to_string(),
+                found: "String".to_string(),
+                expected: "Number".to_string()
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[2].kind,
+            SemanticErrorKind::InvalidOverrideParameterType {
+                method: "f".to_string(),
+                param_name: "x".to_string(),
+                found: "Boolean".to_string(),
+                expected: "Number".to_string()
+            }
+        );
     }
 }
