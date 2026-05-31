@@ -13,7 +13,6 @@ pub enum SymbolKind {
 pub enum SymbolType {
     Variable(TypeId),
     Function { params: Vec<TypeId>, ret: TypeId },
-    Unknown,
 }
 
 #[derive(Debug, Clone)]
