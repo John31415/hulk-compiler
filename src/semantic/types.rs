@@ -88,10 +88,11 @@ impl TypeTable {
 
     pub fn insert_method(&mut self, id: TypeId, method: Symbol) -> bool {
         let info = &mut self.infos[id.0];
-        if info.methods.contains_key(&method.name) {
+        let method_name = method.name.clone();
+        if info.methods.contains_key(&method_name) {
             return false;
         }
-        info.methods.insert(method.name.clone(), method);
+        info.methods.insert(method_name, method);
         true
     }
 
@@ -118,8 +119,8 @@ impl TypeTable {
     pub fn get_method_return_type(&self, type_id: TypeId, method_name: &str) -> Option<TypeId> {
         let info = &self.infos[type_id.0];
         if let Some(method_symbol) = info.methods.get(method_name) {
-            if let SymbolType::Variable(return_type_id) = method_symbol.ty {
-                return Some(return_type_id);
+            if let SymbolType::Function { ret, .. } = &method_symbol.ty {
+                return Some(*ret);
             }
         }
         None
