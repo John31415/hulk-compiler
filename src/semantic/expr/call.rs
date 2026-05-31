@@ -21,9 +21,6 @@ impl SemanticAnalyzer {
                     );
                     return self.ctx.types.resolve("Object").unwrap();
                 }
-                SymbolType::Unknown => {
-                    return self.ctx.types.resolve("Object").unwrap();
-                }
             }
         } else {
             None
@@ -91,7 +88,6 @@ impl SemanticAnalyzer {
                         )
                         .into(),
                     );
-                    return self.ctx.types.resolve("Object").unwrap();
                 }
             }
         }
@@ -150,5 +146,186 @@ impl SemanticAnalyzer {
             current_id = parent_id;
         }
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::semantic::{SemanticAnalyzer, error::SemanticErrorKind, test_utils::parse_program};
+
+    #[test]
+    fn semantic_unit_test_call_function_err() {
+        let source = r#"
+type A() {
+    B() => C();
+}
+
+{
+    let x = 1 in {
+        x(42);
+        y(42);
+    };
+}
+        "#;
+        let program = parse_program(source);
+        let mut analyzer = SemanticAnalyzer::new();
+        analyzer.analyze_program(
+            program.node.decls.as_deref().unwrap_or(&[]),
+            Some(&program.node.body),
+        );
+        assert_eq!(analyzer.diagnostics.len(), 3);
+        assert_eq!(
+            analyzer.diagnostics[0].kind,
+            SemanticErrorKind::UndefinedFunction {
+                name: "C".to_string()
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[1].kind,
+            SemanticErrorKind::NotAFunction {
+                name: "x".to_string()
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[2].kind,
+            SemanticErrorKind::UndefinedFunction {
+                name: "y".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn semantic_unit_test_call_function_arity_err() {
+        let source = r#"
+function A() {
+    42;
+}
+
+function B(b) {
+    42;
+}
+
+{
+    A(1);
+    B();
+}
+        "#;
+        let program = parse_program(source);
+        let mut analyzer = SemanticAnalyzer::new();
+        analyzer.analyze_program(
+            program.node.decls.as_deref().unwrap_or(&[]),
+            Some(&program.node.body),
+        );
+        assert_eq!(analyzer.diagnostics.len(), 2);
+        assert_eq!(
+            analyzer.diagnostics[0].kind,
+            SemanticErrorKind::InvalidFunctionArity {
+                name: "A".to_string(),
+                expected: 0,
+                found: 1
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[1].kind,
+            SemanticErrorKind::InvalidFunctionArity {
+                name: "B".to_string(),
+                expected: 1,
+                found: 0
+            }
+        );
+    }
+
+    #[test]
+    fn semantic_unit_test_call_function_type_mismatch_err() {
+        let source = r#"
+function A(a: Number, b: String, c: Boolean) {
+    42;
+}
+
+{
+    A(true, 1, "hello");
+}
+        "#;
+        let program = parse_program(source);
+        let mut analyzer = SemanticAnalyzer::new();
+        analyzer.analyze_program(
+            program.node.decls.as_deref().unwrap_or(&[]),
+            Some(&program.node.body),
+        );
+        assert_eq!(analyzer.diagnostics.len(), 3);
+        assert_eq!(
+            analyzer.diagnostics[0].kind,
+            SemanticErrorKind::FunctionArgumentTypeMismatch {
+                name: "A".to_string(),
+                index: 1,
+                expected: "Number".to_string(),
+                found: "Boolean".to_string()
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[1].kind,
+            SemanticErrorKind::FunctionArgumentTypeMismatch {
+                name: "A".to_string(),
+                index: 2,
+                expected: "String".to_string(),
+                found: "Number".to_string()
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[2].kind,
+            SemanticErrorKind::FunctionArgumentTypeMismatch {
+                name: "A".to_string(),
+                index: 3,
+                expected: "Boolean".to_string(),
+                found: "String".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn semantic_unit_test_call_function_base_err() {
+        let source = r#" 
+type A {
+    f() => 42;
+}
+        
+type B inherits A {
+    a = base();
+
+    f() => base(1);
+
+    g() => base();
+} 
+
+{
+    let x = base() in 42;
+}
+        "#;
+        let program = parse_program(source);
+        let mut analyzer = SemanticAnalyzer::new();
+        analyzer.analyze_program(
+            program.node.decls.as_deref().unwrap_or(&[]),
+            Some(&program.node.body),
+        );
+        assert_eq!(analyzer.diagnostics.len(), 4);
+        assert_eq!(
+            analyzer.diagnostics[0].kind,
+            SemanticErrorKind::InvalidBaseUsage
+        );
+        assert_eq!(
+            analyzer.diagnostics[1].kind,
+            SemanticErrorKind::BaseTakesNoArguments
+        );
+        assert_eq!(
+            analyzer.diagnostics[2].kind,
+            SemanticErrorKind::UndefinedBaseMethod {
+                type_name: "B".to_string(),
+                method: "g".to_string()
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[3].kind,
+            SemanticErrorKind::InvalidBaseUsage
+        );
     }
 }
