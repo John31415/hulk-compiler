@@ -95,3 +95,79 @@ impl SemanticAnalyzer {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::semantic::{SemanticAnalyzer, error::SemanticErrorKind, test_utils::parse_program};
+
+    #[test]
+    fn semantic_unit_test_postfix_property_access() {
+        let source = r#"
+type A {
+    a = "a";
+
+    f() {
+        let p = new A() in p.a;
+    }
+
+    b = self.a;
+
+    g() => self.c;
+
+    h(n: Number) => n;
+}
+        
+let a = new A() in {
+    a.h();
+    a.h(true);
+    a.i();
+};
+        "#;
+        let program = parse_program(source);
+        let mut analyzer = SemanticAnalyzer::new();
+        analyzer.analyze_program(
+            program.node.decls.as_deref().unwrap_or(&[]),
+            Some(&program.node.body),
+        );
+        assert_eq!(analyzer.diagnostics.len(), 6);
+        assert_eq!(
+            analyzer.diagnostics[0].kind,
+            SemanticErrorKind::InvalidPropertyAccess
+        );
+        assert_eq!(
+            analyzer.diagnostics[1].kind,
+            SemanticErrorKind::InvalidPropertyAccess
+        );
+        assert_eq!(
+            analyzer.diagnostics[2].kind,
+            SemanticErrorKind::UnknownAttribute {
+                type_name: "A".to_string(),
+                attribute: "c".to_string()
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[3].kind,
+            SemanticErrorKind::InvalidMethodArity {
+                method: "h".to_string(),
+                expected: 1,
+                found: 0
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[4].kind,
+            SemanticErrorKind::MethodArgumentTypeMismatch {
+                method: "h".to_string(),
+                index: 1,
+                expected: "Number".to_string(),
+                found: "Boolean".to_string()
+            }
+        );
+        assert_eq!(
+            analyzer.diagnostics[5].kind,
+            SemanticErrorKind::UnknownMethod {
+                type_name: "A".to_string(),
+                method: "i".to_string()
+            }
+        );
+    }
+}
