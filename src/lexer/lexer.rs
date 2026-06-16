@@ -1,3 +1,4 @@
+use chumsky::extra::Err;
 use logos::Logos;
 
 use crate::lexer::{LexError, Span, Token, TokenKind};
@@ -33,16 +34,25 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    pub fn tokenize(&mut self) -> Result<Vec<Token>, LexError> {
+    pub fn tokenize(&mut self) -> Result<Vec<Token>, Vec<LexError>> {
         let mut tokens = Vec::new();
+        let mut errors = Vec::new();
         loop {
-            let token = self.next_token()?;
-            let is_eof = token.kind == TokenKind::EOF;
-            tokens.push(token);
-            if is_eof {
-                break;
+            match self.next_token() {
+                Ok(token) => {
+                    let is_eof = token.kind == TokenKind::EOF;
+                    tokens.push(token);
+                    if is_eof {
+                        break;
+                    }
+                }
+                Err(error) => errors.push(error),
             }
         }
-        Ok(tokens)
+        if errors.is_empty() {
+            Ok(tokens)
+        } else {
+            Err(errors)
+        }
     }
 }

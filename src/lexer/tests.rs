@@ -227,7 +227,7 @@ mod tests {
         let mut lexer = Lexer::new(input);
         let result = lexer.tokenize();
         match result {
-            Err(e) => assert_eq!(e.kind, LexErrorKind::UnexpectedCharacter),
+            Err(e) => assert_eq!(e[0].kind, LexErrorKind::UnexpectedCharacter),
             _ => panic!("Expected error: UnexpectedCharacter."),
         }
     }
@@ -238,7 +238,7 @@ mod tests {
         let mut lexer = Lexer::new(input);
         let result = lexer.tokenize();
         match result {
-            Err(e) => assert_eq!(e.kind, LexErrorKind::UnclosedString),
+            Err(e) => assert_eq!(e[0].kind, LexErrorKind::UnclosedString),
             _ => panic!("Expected error: UnclosedString."),
         }
     }
@@ -249,7 +249,7 @@ mod tests {
         let mut lexer = Lexer::new(input);
         let result = lexer.tokenize();
         match result {
-            Err(e) => assert_eq!(e.kind, LexErrorKind::LeadingZero),
+            Err(e) => assert_eq!(e[0].kind, LexErrorKind::LeadingZero),
             _ => panic!("Expected error: LeadingZero."),
         }
     }
@@ -260,7 +260,7 @@ mod tests {
         let mut lexer = Lexer::new(input);
         let result = lexer.tokenize();
         match result {
-            Err(e) => assert_eq!(e.kind, LexErrorKind::InvalidEscapeSequence),
+            Err(e) => assert_eq!(e[0].kind, LexErrorKind::InvalidEscapeSequence),
             _ => panic!("Expected error: InvalidEscapeSequence."),
         }
     }
@@ -271,7 +271,7 @@ mod tests {
         let mut lexer = Lexer::new(input);
         let result = lexer.tokenize();
         match result {
-            Err(e) => assert_eq!(e.kind, LexErrorKind::MalformedNumber),
+            Err(e) => assert_eq!(e[0].kind, LexErrorKind::MalformedNumber),
             _ => panic!("Expected error: MalformedNumber."),
         }
     }
@@ -282,7 +282,7 @@ mod tests {
         let mut lexer = Lexer::new(input);
         let result = lexer.tokenize();
         match result {
-            Err(e) => assert_eq!(e.kind, LexErrorKind::NumericOverflow),
+            Err(e) => assert_eq!(e[0].kind, LexErrorKind::NumericOverflow),
             _ => panic!("Expected error: NumericOverflow."),
         }
     }
