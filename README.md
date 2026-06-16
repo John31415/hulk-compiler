@@ -155,5 +155,3 @@ Expected output:
 ```text
 20.x.x
 ```
-
----
