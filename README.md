@@ -157,20 +157,3 @@ Expected output:
 ```
 
 ---
-
-### Build the Project
-
-Before building, remove any stale build artifacts:
-
-```bash
-cargo clean
-rm -rf target Cargo.lock
-```
-
-Compile the project:
-
-```bash
-cargo build
-```
-
-If everything is configured correctly, Cargo should successfully compile both `llvm-sys` and `inkwell`.
