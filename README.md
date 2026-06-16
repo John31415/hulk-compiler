@@ -1,6 +1,5 @@
 # hulk-compiler
 
-About
 A high-performance HULK language compiler in Rust, featuring a custom lexer, parser, semantic analyzer, and LLVM backend.
 
 ## Prerequisites: LLVM 20 Installation Guide
