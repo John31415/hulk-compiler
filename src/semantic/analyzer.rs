@@ -1,7 +1,5 @@
-use super::context::SemanticContext;
+use super::{builtin::install_builtins, context::SemanticContext, error::SemanticError};
 use crate::ast::{Decl, Expr};
-use crate::semantic::builtin::install_builtins;
-use crate::semantic::error::SemanticError;
 
 pub struct SemanticAnalyzer {
     pub ctx: SemanticContext,
@@ -16,13 +14,11 @@ impl SemanticAnalyzer {
         }
     }
 
-    pub fn analyze_program(&mut self, decls: &[Decl], entry: Option<&Expr>) {
+    pub fn analyze_program(&mut self, decls: &[Decl], entry: &Expr) {
         install_builtins(&mut self.ctx);
         self.collect_declarations(decls);
         self.check_declarations(decls);
-        if let Some(expr) = entry {
-            self.check_expr(expr);
-        }
+        self.check_expr(entry);
     }
 
     pub fn has_errors(&self) -> bool {

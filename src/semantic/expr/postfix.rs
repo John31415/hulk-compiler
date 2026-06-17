@@ -127,7 +127,7 @@ let a = new A() in {
         let mut analyzer = SemanticAnalyzer::new();
         analyzer.analyze_program(
             program.node.decls.as_deref().unwrap_or(&[]),
-            Some(&program.node.body),
+            &program.node.body,
         );
         assert_eq!(analyzer.diagnostics.len(), 6);
         assert_eq!(

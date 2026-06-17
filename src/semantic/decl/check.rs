@@ -514,7 +514,7 @@ function a(): Number {
         let mut analyzer = SemanticAnalyzer::new();
         analyzer.analyze_program(
             program.node.decls.as_deref().unwrap_or(&[]),
-            Some(&program.node.body),
+            &program.node.body,
         );
         assert_eq!(analyzer.diagnostics.len(), 4);
         assert_eq!(
@@ -559,7 +559,7 @@ type A(a: B, a: Number) {}
         let mut analyzer = SemanticAnalyzer::new();
         analyzer.analyze_program(
             program.node.decls.as_deref().unwrap_or(&[]),
-            Some(&program.node.body),
+            &program.node.body,
         );
         assert_eq!(analyzer.diagnostics.len(), 2);
         assert_eq!(
@@ -593,7 +593,7 @@ type E inherits John {}
         let mut analyzer = SemanticAnalyzer::new();
         analyzer.analyze_program(
             program.node.decls.as_deref().unwrap_or(&[]),
-            Some(&program.node.body),
+            &program.node.body,
         );
         assert_eq!(analyzer.diagnostics.len(), 3);
         assert_eq!(
@@ -637,7 +637,7 @@ type E {
         let mut analyzer = SemanticAnalyzer::new();
         analyzer.analyze_program(
             program.node.decls.as_deref().unwrap_or(&[]),
-            Some(&program.node.body),
+            &program.node.body,
         );
         assert_eq!(analyzer.diagnostics.len(), 3);
         assert_eq!(
@@ -678,7 +678,7 @@ type E {
         let mut analyzer = SemanticAnalyzer::new();
         analyzer.analyze_program(
             program.node.decls.as_deref().unwrap_or(&[]),
-            Some(&program.node.body),
+            &program.node.body,
         );
         assert_eq!(analyzer.diagnostics.len(), 3);
         assert_eq!(
@@ -727,7 +727,7 @@ type C inherits A {
         let mut analyzer = SemanticAnalyzer::new();
         analyzer.analyze_program(
             program.node.decls.as_deref().unwrap_or(&[]),
-            Some(&program.node.body),
+            &program.node.body,
         );
         for semantic_error in &analyzer.diagnostics {
             println!("{:?}", semantic_error);

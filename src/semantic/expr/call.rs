@@ -171,7 +171,7 @@ type A() {
         let mut analyzer = SemanticAnalyzer::new();
         analyzer.analyze_program(
             program.node.decls.as_deref().unwrap_or(&[]),
-            Some(&program.node.body),
+            &program.node.body,
         );
         assert_eq!(analyzer.diagnostics.len(), 3);
         assert_eq!(
@@ -214,7 +214,7 @@ function B(b) {
         let mut analyzer = SemanticAnalyzer::new();
         analyzer.analyze_program(
             program.node.decls.as_deref().unwrap_or(&[]),
-            Some(&program.node.body),
+            &program.node.body,
         );
         assert_eq!(analyzer.diagnostics.len(), 2);
         assert_eq!(
@@ -250,7 +250,7 @@ function A(a: Number, b: String, c: Boolean) {
         let mut analyzer = SemanticAnalyzer::new();
         analyzer.analyze_program(
             program.node.decls.as_deref().unwrap_or(&[]),
-            Some(&program.node.body),
+            &program.node.body,
         );
         assert_eq!(analyzer.diagnostics.len(), 3);
         assert_eq!(
@@ -305,7 +305,7 @@ type B inherits A {
         let mut analyzer = SemanticAnalyzer::new();
         analyzer.analyze_program(
             program.node.decls.as_deref().unwrap_or(&[]),
-            Some(&program.node.body),
+            &program.node.body,
         );
         assert_eq!(analyzer.diagnostics.len(), 4);
         assert_eq!(
