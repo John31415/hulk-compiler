@@ -1,23 +1,21 @@
 use crate::ast::{Literal, LiteralKind};
 use crate::lexer::span::Span;
 use crate::semantic::error::{SemanticError, SemanticErrorKind};
-use crate::semantic::{SemanticAnalyzer, symbols::SymbolType, types::TypeId};
+use crate::semantic::hir::{TypedExpr, TypedExprKind};
+use crate::semantic::{SemanticAnalyzer, symbols::SymbolType};
 
 impl SemanticAnalyzer {
-    pub fn check_literal(&mut self, lit: &Literal) -> TypeId {
-        let type_name = match lit.node {
-            LiteralKind::Number(_) => "Number",
-            LiteralKind::String(_) => "String",
-            LiteralKind::Bool(_) => "Boolean",
+    pub fn analyze_literal(&mut self, lit: &Literal, span: Span) -> TypedExpr {
+        let type_id = match lit.node {
+            LiteralKind::Number(_) => self.resolve_builtin("Number"),
+            LiteralKind::String(_) => self.resolve_builtin("String"),
+            LiteralKind::Bool(_) => self.resolve_builtin("Boolean"),
         };
-        self.ctx
-            .types
-            .resolve(type_name)
-            .unwrap_or_else(|| self.ctx.types.resolve("Object").unwrap())
+        TypedExpr::new(TypedExprKind::Literal(lit.node.clone()), type_id, span)
     }
 
-    pub fn check_variable(&mut self, name: &str, span: Span) -> TypeId {
-        if let Some(symbol) = self.ctx.lookup(name) {
+    pub fn analyze_variable(&mut self, name: &str, span: Span) -> TypedExpr {
+        let type_id = if let Some(symbol) = self.ctx.lookup(name) {
             match symbol.ty {
                 SymbolType::Variable(type_id) => type_id,
                 SymbolType::Function { .. } => {
@@ -44,7 +42,8 @@ impl SemanticAnalyzer {
                 .into(),
             );
             self.ctx.types.resolve("Object").unwrap()
-        }
+        };
+        TypedExpr::new(TypedExprKind::Variable(name.into()), type_id, span)
     }
 }
 
@@ -61,10 +60,7 @@ let x = a in f;
         "#;
         let program = parse_program(source);
         let mut analyzer = SemanticAnalyzer::new();
-        analyzer.analyze_program(
-            program.node.decls.as_deref().unwrap_or(&[]),
-            &program.node.body,
-        );
+        let _ = analyzer.analyze_program(program);
         assert_eq!(analyzer.diagnostics.len(), 2);
         assert_eq!(
             analyzer.diagnostics[0].kind,

@@ -1,23 +1,30 @@
 use crate::ast::{BinaryOp, BinaryOpKind, Expr};
 use crate::lexer::span::Span;
 use crate::semantic::error::{SemanticError, SemanticErrorKind};
+use crate::semantic::hir::{TypedExpr, TypedExprKind};
 use crate::semantic::{SemanticAnalyzer, types::TypeId};
 
 impl SemanticAnalyzer {
-    pub fn check_binary(&mut self, left: &Expr, op: &BinaryOp, right: &Expr) -> TypeId {
-        let left_type = self.check_expr(left);
-        let right_type = self.check_expr(right);
+    pub fn analyze_binary(
+        &mut self,
+        left: &Expr,
+        op: &BinaryOp,
+        right: &Expr,
+        span: Span,
+    ) -> TypedExpr {
+        let left_type = self.analyze_expr(left);
+        let right_type = self.analyze_expr(right);
         let number_type = self.resolve_builtin("Number");
         let string_type = self.resolve_builtin("String");
         let boolean_type = self.resolve_builtin("Boolean");
-        match op.node {
+        let result_type = match op.node {
             BinaryOpKind::Add
             | BinaryOpKind::Sub
             | BinaryOpKind::Mul
             | BinaryOpKind::Div
             | BinaryOpKind::Pow => {
-                self.enforce_type(left_type, number_type, left.span, op);
-                self.enforce_type(right_type, number_type, right.span, op);
+                self.enforce_type(left_type.ty, number_type, left.span, op);
+                self.enforce_type(right_type.ty, number_type, right.span, op);
                 number_type
             }
 
@@ -25,25 +32,25 @@ impl SemanticAnalyzer {
             | BinaryOpKind::Greater
             | BinaryOpKind::LessEqual
             | BinaryOpKind::GreaterEqual => {
-                self.enforce_type(left_type, number_type, left.span, op);
-                self.enforce_type(right_type, number_type, right.span, op);
+                self.enforce_type(left_type.ty, number_type, left.span, op);
+                self.enforce_type(right_type.ty, number_type, right.span, op);
                 boolean_type
             }
 
             BinaryOpKind::And | BinaryOpKind::Or => {
-                self.enforce_type(left_type, boolean_type, left.span, op);
-                self.enforce_type(right_type, boolean_type, right.span, op);
+                self.enforce_type(left_type.ty, boolean_type, left.span, op);
+                self.enforce_type(right_type.ty, boolean_type, right.span, op);
                 boolean_type
             }
 
             BinaryOpKind::Concat | BinaryOpKind::ConcatSpace => {
-                if left_type != string_type && right_type != string_type {
+                if left_type.ty != string_type && right_type.ty != string_type {
                     self.diagnostics.push(
                         SemanticError::new(
                             SemanticErrorKind::InvalidBinaryOperation {
                                 operator: op.node.to_string(),
-                                left: self.ctx.types.get(left_type).name.clone(),
-                                right: self.ctx.types.get(right_type).name.clone(),
+                                left: self.ctx.types.get(left_type.ty).name.clone(),
+                                right: self.ctx.types.get(right_type.ty).name.clone(),
                             },
                             left.span.union(&right.span),
                         )
@@ -54,37 +61,46 @@ impl SemanticAnalyzer {
             }
 
             BinaryOpKind::DoubleEqual | BinaryOpKind::NotEqual => {
-                if !self.ctx.types.is_subtype_of(left_type, right_type)
-                    && !self.ctx.types.is_subtype_of(right_type, left_type)
+                if !self.ctx.types.is_subtype_of(left_type.ty, right_type.ty)
+                    && !self.ctx.types.is_subtype_of(right_type.ty, left_type.ty)
                 {
                     self.diagnostics.push(
                         SemanticError::new(
                             SemanticErrorKind::IncomparableTypes {
-                                left: self.ctx.types.get(left_type).name.clone(),
-                                right: self.ctx.types.get(right_type).name.clone(),
+                                left: self.ctx.types.get(left_type.ty).name.clone(),
+                                right: self.ctx.types.get(right_type.ty).name.clone(),
                             },
-                            left.span.union(&right.span),
+                            span,
                         )
                         .into(),
                     );
                 }
                 boolean_type
             }
-        }
+        };
+        TypedExpr::new(
+            TypedExprKind::Binary {
+                left_expr: Box::new(left_type),
+                op: op.clone(),
+                right_expr: Box::new(right_type),
+            },
+            result_type,
+            span,
+        )
     }
 
-    pub fn check_is(&mut self, expr: &Expr, type_name: &str, span: Span) -> TypeId {
-        let expr_type = self.check_expr(expr);
+    pub fn analyze_is(&mut self, expr: &Expr, type_name: &str, span: Span) -> TypedExpr {
+        let expr_type = self.analyze_expr(expr);
         let bool_type = self.resolve_builtin("Boolean");
-        match self.ctx.types.resolve(type_name) {
+        let resolved_target_type = match self.ctx.types.resolve(type_name) {
             Some(target_type) => {
-                if !self.ctx.types.is_subtype_of(expr_type, target_type)
-                    && !self.ctx.types.is_subtype_of(target_type, expr_type)
+                if !self.ctx.types.is_subtype_of(expr_type.ty, target_type)
+                    && !self.ctx.types.is_subtype_of(target_type, expr_type.ty)
                 {
                     self.diagnostics.push(
                         SemanticError::new(
                             SemanticErrorKind::ImpossibleTypeCheck {
-                                expr: self.ctx.types.get(expr_type).name.clone(),
+                                expr: self.ctx.types.get(expr_type.ty).name.clone(),
                                 target: type_name.to_string(),
                             },
                             span,
@@ -92,6 +108,7 @@ impl SemanticAnalyzer {
                         .into(),
                     );
                 }
+                target_type
             }
             None => {
                 self.diagnostics.push(
@@ -103,22 +120,30 @@ impl SemanticAnalyzer {
                     )
                     .into(),
                 );
+                self.resolve_builtin("Object")
             }
-        }
-        bool_type
+        };
+        TypedExpr::new(
+            TypedExprKind::Is {
+                expr: Box::new(expr_type),
+                target_type: resolved_target_type,
+            },
+            bool_type,
+            span,
+        )
     }
 
-    pub fn check_as(&mut self, expr: &Expr, type_name: &str, span: Span) -> TypeId {
-        let expr_type = self.check_expr(expr);
-        match self.ctx.types.resolve(type_name) {
+    pub fn analyze_as(&mut self, expr: &Expr, type_name: &str, span: Span) -> TypedExpr {
+        let expr_type = self.analyze_expr(expr);
+        let resolved_target_type = match self.ctx.types.resolve(type_name) {
             Some(target_type) => {
-                if !self.ctx.types.is_subtype_of(expr_type, target_type)
-                    && !self.ctx.types.is_subtype_of(target_type, expr_type)
+                if !self.ctx.types.is_subtype_of(expr_type.ty, target_type)
+                    && !self.ctx.types.is_subtype_of(target_type, expr_type.ty)
                 {
                     self.diagnostics.push(
                         SemanticError::new(
                             SemanticErrorKind::InvalidCast {
-                                from: self.ctx.types.get(expr_type).name.clone(),
+                                from: self.ctx.types.get(expr_type.ty).name.clone(),
                                 to: type_name.to_string(),
                             },
                             span,
@@ -138,9 +163,17 @@ impl SemanticAnalyzer {
                     )
                     .into(),
                 );
-                self.ctx.types.resolve("Object").unwrap()
+                self.resolve_builtin("Object")
             }
-        }
+        };
+        TypedExpr::new(
+            TypedExprKind::As {
+                expr: Box::new(expr_type),
+                target_type: resolved_target_type,
+            },
+            resolved_target_type,
+            span,
+        )
     }
 
     fn enforce_type(&mut self, current: TypeId, expected: TypeId, span: Span, op: &BinaryOp) {
@@ -181,10 +214,7 @@ mod tests {
     "#;
         let program = parse_program(source);
         let mut analyzer = SemanticAnalyzer::new();
-        analyzer.analyze_program(
-            program.node.decls.as_deref().unwrap_or(&[]),
-            &program.node.body,
-        );
+        let _ = analyzer.analyze_program(program);
         assert_eq!(analyzer.diagnostics.len(), 10);
         assert_eq!(
             analyzer.diagnostics[0].kind,

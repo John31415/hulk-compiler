@@ -1,9 +1,13 @@
 use crate::ast::{Expr, ExprKind};
+use crate::lexer::span::Span;
+use crate::semantic::SemanticAnalyzer;
 use crate::semantic::error::{SemanticError, SemanticErrorKind};
-use crate::semantic::{SemanticAnalyzer, types::TypeId};
+use crate::semantic::hir::{TypedExpr, TypedExprKind};
 
 impl SemanticAnalyzer {
-    pub fn check_assign(&mut self, target: &Expr, value: &Expr) -> TypeId {
+    pub fn analyze_assign(&mut self, target: &Expr, value: &Expr, span: Span) -> TypedExpr {
+        let value_type = self.analyze_expr(value);
+        let target_expr = self.analyze_expr(target);
         let target_type = match &target.node {
             ExprKind::Variable(name) => {
                 if name == "self" {
@@ -11,34 +15,42 @@ impl SemanticAnalyzer {
                         SemanticError::new(SemanticErrorKind::InvalidAssignmentTarget, target.span)
                             .into(),
                     );
-                    self.check_expr(value);
-                    return self.ctx.types.resolve("Object").unwrap();
+                    self.resolve_builtin("Object")
+                } else {
+                    target_expr.ty
                 }
-                self.check_variable(name, target.span)
             }
-            ExprKind::PropertyAccess { .. } => self.check_expr(target),
+            ExprKind::PropertyAccess { .. } => target_expr.ty,
             _ => {
                 self.diagnostics.push(
                     SemanticError::new(SemanticErrorKind::InvalidAssignmentTarget, target.span)
                         .into(),
                 );
-                self.ctx.types.resolve("Object").unwrap()
+                self.resolve_builtin("Object")
             }
         };
-        let value_type = self.check_expr(value);
-        if !self.ctx.types.is_subtype_of(value_type, target_type) {
+
+        if !self.ctx.types.is_subtype_of(value_type.ty, target_type) {
             self.diagnostics.push(
                 SemanticError::new(
                     SemanticErrorKind::TypeMismatch {
                         expected: self.ctx.types.get(target_type).name.clone(),
-                        found: self.ctx.types.get(value_type).name.clone(),
+                        found: self.ctx.types.get(value_type.ty).name.clone(),
                     },
                     value.span,
                 )
                 .into(),
             );
         }
-        value_type
+        let type_id = value_type.ty;
+        TypedExpr::new(
+            TypedExprKind::Assign {
+                target: Box::new(target_expr),
+                value: Box::new(value_type),
+            },
+            type_id,
+            span,
+        )
     }
 }
 
@@ -61,10 +73,7 @@ type A {
         "#;
         let program = parse_program(source);
         let mut analyzer = SemanticAnalyzer::new();
-        analyzer.analyze_program(
-            program.node.decls.as_deref().unwrap_or(&[]),
-            &program.node.body,
-        );
+        let _ = analyzer.analyze_program(program);
         assert_eq!(analyzer.diagnostics.len(), 2);
         assert_eq!(
             analyzer.diagnostics[0].kind,

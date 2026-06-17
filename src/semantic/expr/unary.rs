@@ -1,13 +1,16 @@
 use crate::ast::{Expr, UnaryOp, UnaryOpKind};
+use crate::lexer::span::Span;
+use crate::semantic::SemanticAnalyzer;
 use crate::semantic::error::{SemanticError, SemanticErrorKind};
-use crate::semantic::{SemanticAnalyzer, types::TypeId};
+use crate::semantic::hir::{TypedExpr, TypedExprKind};
 
 impl SemanticAnalyzer {
-    pub fn check_unary(&mut self, op: &UnaryOp, expr: &Expr) -> TypeId {
-        let inner_type = self.check_expr(expr);
+    pub fn analyze_unary(&mut self, op: &UnaryOp, expr: &Expr, span: Span) -> TypedExpr {
+        let inner = self.analyze_expr(expr);
+        let inner_type = inner.ty;
         let number_type = self.resolve_builtin("Number");
         let boolean_type = self.resolve_builtin("Boolean");
-        match op.node {
+        let type_id = match op.node {
             UnaryOpKind::Neg => {
                 if inner_type != number_type {
                     self.diagnostics.push(
@@ -16,7 +19,7 @@ impl SemanticAnalyzer {
                                 operator: "-".to_string(),
                                 operand: self.ctx.types.get(inner_type).name.clone(),
                             },
-                            expr.span,
+                            span,
                         )
                         .into(),
                     );
@@ -31,14 +34,22 @@ impl SemanticAnalyzer {
                                 operator: "!".to_string(),
                                 operand: self.ctx.types.get(inner_type).name.clone(),
                             },
-                            expr.span,
+                            span,
                         )
                         .into(),
                     );
                 }
                 boolean_type
             }
-        }
+        };
+        TypedExpr::new(
+            TypedExprKind::Unary {
+                op: op.clone(),
+                expr: Box::new(inner),
+            },
+            type_id,
+            span,
+        )
     }
 }
 
@@ -56,10 +67,7 @@ mod tests {
         "#;
         let program = parse_program(source);
         let mut analyzer = SemanticAnalyzer::new();
-        analyzer.analyze_program(
-            program.node.decls.as_deref().unwrap_or(&[]),
-            &program.node.body,
-        );
+        let _ = analyzer.analyze_program(program);
         assert_eq!(analyzer.diagnostics.len(), 2);
         assert_eq!(
             analyzer.diagnostics[0].kind,

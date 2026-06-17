@@ -1,22 +1,20 @@
 use crate::ast::Expr;
 use crate::lexer::span::Span;
-use crate::semantic::{SemanticAnalyzer, types::TypeId};
+use crate::semantic::SemanticAnalyzer;
+use crate::semantic::hir::{TypedExpr, TypedExprKind};
 
 impl SemanticAnalyzer {
-    pub fn check_block(&mut self, expressions: &Vec<Expr>, _span: Span) -> TypeId {
-        if expressions.is_empty() {
-            return self.ctx.types.resolve("Object").unwrap();
-        }
+    pub fn analyze_block(&mut self, expressions: &Vec<Expr>, span: Span) -> TypedExpr {
         self.ctx.push_scope();
         let mut last_type_id = self.ctx.types.resolve("Object").unwrap();
-        for (i, expr) in expressions.iter().enumerate() {
-            let expr_type = self.check_expr(expr);
-            if i == expressions.len() - 1 {
-                last_type_id = expr_type;
-            }
+        let mut typed_expressions = Vec::new();
+        for expr in expressions {
+            let expr_type = self.analyze_expr(expr);
+            last_type_id = expr_type.ty;
+            typed_expressions.push(expr_type);
         }
         self.ctx.pop_scope();
-        last_type_id
+        TypedExpr::new(TypedExprKind::Block(typed_expressions), last_type_id, span)
     }
 }
 
@@ -38,10 +36,7 @@ mod tests {
         "#;
         let program = parse_program(source);
         let mut analyzer = SemanticAnalyzer::new();
-        analyzer.analyze_program(
-            program.node.decls.as_deref().unwrap_or(&[]),
-            &program.node.body,
-        );
+        let _ = analyzer.analyze_program(program);
         assert_eq!(analyzer.diagnostics.len(), 0);
     }
 }

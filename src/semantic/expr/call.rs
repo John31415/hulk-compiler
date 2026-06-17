@@ -1,11 +1,13 @@
 use crate::ast::Expr;
 use crate::lexer::span::Span;
 use crate::semantic::error::{SemanticError, SemanticErrorKind};
+use crate::semantic::hir::{TypedExpr, TypedExprKind};
 use crate::semantic::symbols::SymbolType;
 use crate::semantic::{analyzer::SemanticAnalyzer, types::TypeId};
 
 impl SemanticAnalyzer {
-    pub fn check_call(&mut self, name: &str, args: &Vec<Expr>, span: Span) -> TypeId {
+    pub fn analyze_call(&mut self, name: &str, args: &Vec<Expr>, span: Span) -> TypedExpr {
+        let object_type = self.resolve_builtin("Object");
         let function_sig = if let Some(symbol) = self.ctx.lookup(name) {
             match &symbol.ty {
                 SymbolType::Function { params, ret } => Some((params.clone(), *ret)),
@@ -19,7 +21,14 @@ impl SemanticAnalyzer {
                         )
                         .into(),
                     );
-                    return self.ctx.types.resolve("Object").unwrap();
+                    return TypedExpr::new(
+                        TypedExprKind::Call {
+                            name: name.into(),
+                            args: vec![],
+                        },
+                        object_type,
+                        span,
+                    );
                 }
             }
         } else {
@@ -42,7 +51,14 @@ impl SemanticAnalyzer {
                             )
                             .into(),
                         );
-                        return self.ctx.types.resolve("Object").unwrap();
+                        return TypedExpr::new(
+                            TypedExprKind::Call {
+                                name: name.into(),
+                                args: vec![],
+                            },
+                            object_type,
+                            span,
+                        );
                     }
                 } else {
                     self.diagnostics.push(
@@ -54,7 +70,14 @@ impl SemanticAnalyzer {
                         )
                         .into(),
                     );
-                    return self.ctx.types.resolve("Object").unwrap();
+                    return TypedExpr::new(
+                        TypedExprKind::Call {
+                            name: name.into(),
+                            args: vec![],
+                        },
+                        object_type,
+                        span,
+                    );
                 }
             }
         };
@@ -71,18 +94,19 @@ impl SemanticAnalyzer {
                 .into(),
             );
         }
+        let mut typed_args = Vec::new();
         for (i, arg) in args.iter().enumerate() {
-            let arg_type = self.check_expr(arg);
+            let arg_type = self.analyze_expr(arg);
             if i < param_types.len() {
                 let expected_type = param_types[i];
-                if !self.ctx.types.is_subtype_of(arg_type, expected_type) {
+                if !self.ctx.types.is_subtype_of(arg_type.ty, expected_type) {
                     self.diagnostics.push(
                         SemanticError::new(
                             SemanticErrorKind::FunctionArgumentTypeMismatch {
                                 name: name.to_string(),
                                 index: i + 1,
                                 expected: self.ctx.types.get(expected_type).name.clone(),
-                                found: self.ctx.types.get(arg_type).name.clone(),
+                                found: self.ctx.types.get(arg_type.ty).name.clone(),
                             },
                             arg.span,
                         )
@@ -90,17 +114,33 @@ impl SemanticAnalyzer {
                     );
                 }
             }
+            typed_args.push(arg_type);
         }
-        return_type
+        TypedExpr::new(
+            TypedExprKind::Call {
+                name: name.into(),
+                args: typed_args,
+            },
+            return_type,
+            span,
+        )
     }
 
-    pub fn check_base_call(&mut self, _name: &str, args: &Vec<Expr>, span: Span) -> TypeId {
+    pub fn analyze_base_call(&mut self, name: &str, args: &Vec<Expr>, span: Span) -> TypedExpr {
+        let object_type = self.resolve_builtin("Object");
         let current_type_id = match self.ctx.current_type {
             Some(id) => id,
             None => {
                 self.diagnostics
                     .push(SemanticError::new(SemanticErrorKind::InvalidBaseUsage, span).into());
-                return self.ctx.types.resolve("Object").unwrap();
+                return TypedExpr::new(
+                    TypedExprKind::Call {
+                        name: name.into(),
+                        args: vec![],
+                    },
+                    object_type,
+                    span,
+                );
             }
         };
         let current_method_name = match &self.ctx.current_method {
@@ -108,14 +148,22 @@ impl SemanticAnalyzer {
             None => {
                 self.diagnostics
                     .push(SemanticError::new(SemanticErrorKind::InvalidBaseUsage, span).into());
-                return self.ctx.types.resolve("Object").unwrap();
+                return TypedExpr::new(
+                    TypedExprKind::Call {
+                        name: name.into(),
+                        args: vec![],
+                    },
+                    object_type,
+                    span,
+                );
             }
         };
         if !args.is_empty() {
             self.diagnostics
                 .push(SemanticError::new(SemanticErrorKind::BaseTakesNoArguments, span).into());
         }
-        match self.find_closest_ancestor_method(current_type_id, current_method_name) {
+        let type_id = match self.find_closest_ancestor_method(current_type_id, current_method_name)
+        {
             Some(ancestor_return_type) => ancestor_return_type,
             None => {
                 self.diagnostics.push(
@@ -130,7 +178,15 @@ impl SemanticAnalyzer {
                 );
                 self.ctx.types.resolve("Object").unwrap()
             }
-        }
+        };
+        TypedExpr::new(
+            TypedExprKind::Call {
+                name: name.into(),
+                args: vec![],
+            },
+            type_id,
+            span,
+        )
     }
 
     fn find_closest_ancestor_method(&self, type_id: TypeId, method_name: &str) -> Option<TypeId> {
@@ -169,10 +225,7 @@ type A() {
         "#;
         let program = parse_program(source);
         let mut analyzer = SemanticAnalyzer::new();
-        analyzer.analyze_program(
-            program.node.decls.as_deref().unwrap_or(&[]),
-            &program.node.body,
-        );
+        let _ = analyzer.analyze_program(program);
         assert_eq!(analyzer.diagnostics.len(), 3);
         assert_eq!(
             analyzer.diagnostics[0].kind,
@@ -212,10 +265,7 @@ function B(b) {
         "#;
         let program = parse_program(source);
         let mut analyzer = SemanticAnalyzer::new();
-        analyzer.analyze_program(
-            program.node.decls.as_deref().unwrap_or(&[]),
-            &program.node.body,
-        );
+        let _ = analyzer.analyze_program(program);
         assert_eq!(analyzer.diagnostics.len(), 2);
         assert_eq!(
             analyzer.diagnostics[0].kind,
@@ -248,10 +298,7 @@ function A(a: Number, b: String, c: Boolean) {
         "#;
         let program = parse_program(source);
         let mut analyzer = SemanticAnalyzer::new();
-        analyzer.analyze_program(
-            program.node.decls.as_deref().unwrap_or(&[]),
-            &program.node.body,
-        );
+        let _ = analyzer.analyze_program(program);
         assert_eq!(analyzer.diagnostics.len(), 3);
         assert_eq!(
             analyzer.diagnostics[0].kind,
@@ -303,10 +350,7 @@ type B inherits A {
         "#;
         let program = parse_program(source);
         let mut analyzer = SemanticAnalyzer::new();
-        analyzer.analyze_program(
-            program.node.decls.as_deref().unwrap_or(&[]),
-            &program.node.body,
-        );
+        let _ = analyzer.analyze_program(program);
         assert_eq!(analyzer.diagnostics.len(), 4);
         assert_eq!(
             analyzer.diagnostics[0].kind,

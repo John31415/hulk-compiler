@@ -1,10 +1,12 @@
 use crate::ast::{Expr, ExprKind};
 use crate::lexer::span::Span;
+use crate::semantic::SemanticAnalyzer;
 use crate::semantic::error::{SemanticError, SemanticErrorKind};
-use crate::semantic::{SemanticAnalyzer, types::TypeId};
+use crate::semantic::hir::{TypedExpr, TypedExprKind};
 
 impl SemanticAnalyzer {
-    pub fn check_property_access(&mut self, obj: &Expr, property: &str, span: Span) -> TypeId {
+    pub fn analyze_property_access(&mut self, obj: &Expr, property: &str, span: Span) -> TypedExpr {
+        let obj_expr = self.analyze_expr(obj);
         let is_self_access = match &obj.node {
             ExprKind::Variable(name) => name == "self",
             _ => false,
@@ -12,40 +14,64 @@ impl SemanticAnalyzer {
         if !is_self_access {
             self.diagnostics
                 .push(SemanticError::new(SemanticErrorKind::InvalidPropertyAccess, span).into());
-            return self.ctx.types.resolve("Object").unwrap();
+            return TypedExpr::new(
+                TypedExprKind::PropertyAccess {
+                    obj: Box::new(obj_expr),
+                    property: property.into(),
+                },
+                self.resolve_builtin("Object"),
+                span,
+            );
         }
         if self.ctx.current_method.is_none() {
             self.diagnostics
                 .push(SemanticError::new(SemanticErrorKind::InvalidPropertyAccess, span).into());
-            return self.ctx.types.resolve("Object").unwrap();
+            return TypedExpr::new(
+                TypedExprKind::PropertyAccess {
+                    obj: Box::new(obj_expr),
+                    property: property.into(),
+                },
+                self.resolve_builtin("Object"),
+                span,
+            );
         }
-        let obj_type = self.check_expr(obj);
-        if let Some(attr_type_id) = self.ctx.types.lookup_attribute(obj_type, property) {
-            attr_type_id
+        let attr_type_id = if let Some(t) = self.ctx.types.lookup_attribute(obj_expr.ty, property) {
+            t
         } else {
             self.diagnostics.push(
                 SemanticError::new(
                     SemanticErrorKind::UnknownAttribute {
-                        type_name: self.ctx.types.get(obj_type).name.clone(),
+                        type_name: self.ctx.types.get(obj_expr.ty).name.clone(),
                         attribute: property.to_string(),
                     },
                     span,
                 )
                 .into(),
             );
-            self.ctx.types.resolve("Object").unwrap()
-        }
+            self.resolve_builtin("Object")
+        };
+        TypedExpr::new(
+            TypedExprKind::PropertyAccess {
+                obj: Box::new(obj_expr),
+                property: property.into(),
+            },
+            attr_type_id,
+            span,
+        )
     }
 
-    pub fn check_method_call(
+    pub fn analyze_method_call(
         &mut self,
         obj: &Expr,
         method: &str,
         args: &Vec<Expr>,
         span: Span,
-    ) -> TypeId {
-        let obj_type = self.check_expr(obj);
-        if let Some((param_types, return_type)) = self.ctx.types.lookup_method(obj_type, method) {
+    ) -> TypedExpr {
+        let obj_expr = self.analyze_expr(obj);
+        let mut typed_args = Vec::new();
+        let type_id = if let Some((param_types, return_type)) =
+            self.ctx.types.lookup_method(obj_expr.ty, method)
+        {
             if args.len() != param_types.len() {
                 self.diagnostics.push(
                     SemanticError::new(
@@ -60,17 +86,17 @@ impl SemanticAnalyzer {
                 );
             }
             for (i, arg) in args.iter().enumerate() {
-                let arg_type = self.check_expr(arg);
+                let arg_type = self.analyze_expr(arg);
                 if i < param_types.len() {
                     let expected_type = param_types[i];
-                    if !self.ctx.types.is_subtype_of(arg_type, expected_type) {
+                    if !self.ctx.types.is_subtype_of(arg_type.ty, expected_type) {
                         self.diagnostics.push(
                             SemanticError::new(
                                 SemanticErrorKind::MethodArgumentTypeMismatch {
                                     method: method.to_string(),
                                     index: i + 1,
                                     expected: self.ctx.types.get(expected_type).name.clone(),
-                                    found: self.ctx.types.get(arg_type).name.clone(),
+                                    found: self.ctx.types.get(arg_type.ty).name.clone(),
                                 },
                                 arg.span,
                             )
@@ -78,21 +104,31 @@ impl SemanticAnalyzer {
                         );
                     }
                 }
+                typed_args.push(arg_type);
             }
             return_type
         } else {
             self.diagnostics.push(
                 SemanticError::new(
                     SemanticErrorKind::UnknownMethod {
-                        type_name: self.ctx.types.get(obj_type).name.clone(),
+                        type_name: self.ctx.types.get(obj_expr.ty).name.clone(),
                         method: method.to_string(),
                     },
                     span,
                 )
                 .into(),
             );
-            self.ctx.types.resolve("Object").unwrap()
-        }
+            self.resolve_builtin("Object")
+        };
+        TypedExpr::new(
+            TypedExprKind::MethodCall {
+                obj: Box::new(obj_expr),
+                method: method.into(),
+                args: typed_args,
+            },
+            type_id,
+            span,
+        )
     }
 }
 
@@ -125,10 +161,7 @@ let a = new A() in {
         "#;
         let program = parse_program(source);
         let mut analyzer = SemanticAnalyzer::new();
-        analyzer.analyze_program(
-            program.node.decls.as_deref().unwrap_or(&[]),
-            &program.node.body,
-        );
+        let _ = analyzer.analyze_program(program);
         assert_eq!(analyzer.diagnostics.len(), 6);
         assert_eq!(
             analyzer.diagnostics[0].kind,
