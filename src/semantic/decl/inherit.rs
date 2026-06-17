@@ -51,10 +51,7 @@ type D {}
         "#;
         let program = parse_program(source);
         let mut analyzer = SemanticAnalyzer::new();
-        analyzer.analyze_program(
-            program.node.decls.as_deref().unwrap_or(&[]),
-            &program.node.body,
-        );
+        let _ = analyzer.analyze_program(program);
         assert_eq!(analyzer.diagnostics.len(), 0);
     }
 
@@ -73,10 +70,7 @@ type D inherits F {}
         "#;
         let program = parse_program(source);
         let mut analyzer = SemanticAnalyzer::new();
-        analyzer.analyze_program(
-            program.node.decls.as_deref().unwrap_or(&[]),
-            &program.node.body,
-        );
+        let _ = analyzer.analyze_program(program);
         assert_eq!(analyzer.diagnostics.len(), 1);
         assert_eq!(
             analyzer.diagnostics[0].kind,

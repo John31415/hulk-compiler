@@ -5,7 +5,7 @@ use crate::semantic::symbols::{Symbol, SymbolKind, SymbolType};
 
 impl SemanticAnalyzer {
     pub fn collect_declarations(&mut self, decls: &[Decl]) {
-        let object_type = self.ctx.types.resolve("Object").unwrap();
+        let object_type = self.resolve_builtin("Object");
         for decl in decls {
             match &decl.node {
                 DeclKind::Function { name, params, .. } => {
@@ -67,10 +67,7 @@ type A(a: String) {}
         "#;
         let program = parse_program(source);
         let mut analyzer = SemanticAnalyzer::new();
-        analyzer.analyze_program(
-            program.node.decls.as_deref().unwrap_or(&[]),
-            &program.node.body,
-        );
+        let _ = analyzer.analyze_program(program);
         assert_eq!(analyzer.diagnostics.len(), 2);
         assert_eq!(
             analyzer.diagnostics[0].kind,
