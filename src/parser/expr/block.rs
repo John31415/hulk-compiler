@@ -15,14 +15,13 @@ pub fn block_parser<'src>(
     expr.clone()
         .then_ignore(semi.clone())
         .repeated()
+        .at_least(1)
         .collect::<Vec<_>>()
         .delimited_by(
             select_ref! { Token { kind: TokenKind::LBrace, .. } => () },
             select_ref! { Token { kind: TokenKind::RBrace, .. } => () },
         )
-        .map_with(|exprs, e| {
-            Spanned::new(ExprKind::Block(exprs), span_from_token_slice(e.slice()))
-        })
+        .map_with(|exprs, e| Spanned::new(ExprKind::Block(exprs), span_from_token_slice(e.slice())))
 }
 
 #[cfg(test)]
