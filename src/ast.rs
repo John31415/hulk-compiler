@@ -171,15 +171,6 @@ pub enum BinaryOpKind {
     Or,
 }
 
-pub type VarDef = Spanned<VarDefKind>;
-
-#[derive(Debug, Clone, Serialize)]
-pub struct VarDefKind {
-    pub name: String,
-    pub type_name: Option<String>,
-    pub value: Expr,
-}
-
 impl fmt::Display for BinaryOpKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
