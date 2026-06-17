@@ -15,7 +15,14 @@ impl SemanticAnalyzer {
                         SemanticError::new(SemanticErrorKind::InvalidAssignmentTarget, target.span)
                             .into(),
                     );
-                    self.resolve_builtin("Object")
+                    return TypedExpr::new(
+                        TypedExprKind::Assign {
+                            target: Box::new(target_expr),
+                            value: Box::new(value_type),
+                        },
+                        self.resolve_builtin("Object"),
+                        span,
+                    );
                 } else {
                     target_expr.ty
                 }
