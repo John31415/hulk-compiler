@@ -1,4 +1,3 @@
-use chumsky::extra::Err;
 use logos::Logos;
 
 use crate::lexer::{LexError, Span, Token, TokenKind};
