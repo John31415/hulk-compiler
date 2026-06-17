@@ -57,8 +57,8 @@ mod tests {
     #[test]
     fn semantic_unit_test_duplicate_function_err() {
         let source = r#"
-function f() {}
-function f(x: Number) {}
+function f() { 42; }
+function f(x: Number) { 42; }
 
 type A {}
 type A(a: String) {}
