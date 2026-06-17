@@ -1,9 +1,10 @@
 use super::symbols::Symbol;
 use crate::semantic::symbols::SymbolType;
+use serde::Serialize;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 pub struct TypeId(pub usize);
 
 #[derive(Debug, Clone)]
