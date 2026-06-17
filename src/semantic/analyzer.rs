@@ -1,5 +1,7 @@
-use super::{builtin::install_builtins, context::SemanticContext, error::SemanticError};
-use crate::ast::{Decl, Expr};
+use super::{
+    builtin::install_builtins, context::SemanticContext, error::SemanticError, hir::TypedProgram,
+};
+use crate::{ast::Program, semantic::hir::TypedProgramKind};
 
 pub struct SemanticAnalyzer {
     pub ctx: SemanticContext,
@@ -14,11 +16,27 @@ impl SemanticAnalyzer {
         }
     }
 
-    pub fn analyze_program(&mut self, decls: &[Decl], entry: &Expr) {
+    pub fn analyze_program(
+        &mut self,
+        program: Program,
+    ) -> Result<TypedProgram, Vec<SemanticError>> {
+        let decls = program.node.decls.as_deref().unwrap_or(&[]);
+        let entry = &program.node.body;
         install_builtins(&mut self.ctx);
         self.collect_declarations(decls);
-        self.check_declarations(decls);
-        self.check_expr(entry);
+        let typed_decls = self.analyze_declarations(decls);
+        let typed_entry = self.analyze_expr(entry);
+        if self.has_errors() {
+            return Err(self.diagnostics.clone());
+        }
+        let hir = TypedProgram {
+            node: TypedProgramKind {
+                decls: typed_decls,
+                body: typed_entry,
+            },
+            span: program.span,
+        };
+        Ok(hir)
     }
 
     pub fn has_errors(&self) -> bool {
