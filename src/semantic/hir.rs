@@ -68,7 +68,10 @@ pub type TypedExpr = TypedSpanned<TypedExprKind>;
 pub enum TypedExprKind {
     Literal(LiteralKind),
     Variable(String),
-    New(Vec<TypedExpr>),
+    New {
+        name: String,
+        args: Vec<TypedExpr>,
+    },
     Block(Vec<TypedExpr>),
     Call {
         name: String,

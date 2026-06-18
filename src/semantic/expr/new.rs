@@ -62,7 +62,14 @@ impl SemanticAnalyzer {
             }
             typed_args.push(arg_type);
         }
-        TypedExpr::new(TypedExprKind::New(typed_args), instance_type_id, span)
+        TypedExpr::new(
+            TypedExprKind::New {
+                name: type_name.into(),
+                args: typed_args,
+            },
+            instance_type_id,
+            span,
+        )
     }
 }
 
