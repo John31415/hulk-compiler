@@ -57,6 +57,21 @@ impl SemanticAnalyzer {
                         .into(),
                     );
                 }
+                if (left_type.ty != string_type && left_type.ty != number_type)
+                    || (right_type.ty != string_type && right_type.ty != number_type)
+                {
+                    self.diagnostics.push(
+                        SemanticError::new(
+                            SemanticErrorKind::InvalidBinaryOperation {
+                                operator: op.node.to_string(),
+                                left: self.ctx.types.get(left_type.ty).name.clone(),
+                                right: self.ctx.types.get(right_type.ty).name.clone(),
+                            },
+                            left.span.union(&right.span),
+                        )
+                        .into(),
+                    );
+                }
                 string_type
             }
 

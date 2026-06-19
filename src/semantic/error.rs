@@ -241,7 +241,7 @@ impl SemanticErrorKind {
                 right,
             } => {
                 format!(
-                    "operator '{}' requires at least one String operand, but found left: '{}', right: '{}'",
+                    "operator '{}' requires both operands to be of compatible types: either both Strings, or one String and one Number. Received left: '{}', right: '{}'",
                     operator, left, right,
                 )
             }
