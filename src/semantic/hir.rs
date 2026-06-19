@@ -32,6 +32,7 @@ impl<T> DeclSpanned<T> {
     }
 }
 
+#[derive(Debug, Clone, Serialize)]
 pub struct TypedProgram {
     pub node: TypedProgramKind,
     pub span: Span,
