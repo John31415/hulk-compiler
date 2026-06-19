@@ -14,7 +14,7 @@ impl SemanticAnalyzer {
             };
             typed_decls.push(typed_decl);
         }
-        typed_decls.is_empty().then_some(typed_decls)
+        (!typed_decls.is_empty()).then_some(typed_decls)
     }
 }
 
