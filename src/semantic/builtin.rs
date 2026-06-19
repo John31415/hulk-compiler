@@ -6,6 +6,7 @@ use crate::lexer::span::Span;
 
 pub fn install_builtins(ctx: &mut SemanticContext) {
     let number = ctx.types.resolve("Number").unwrap();
+    let string = ctx.types.resolve("String").unwrap();
     ctx.declare(Symbol {
         name: "sqrt".to_string(),
         kind: SymbolKind::Function,
@@ -57,6 +58,15 @@ pub fn install_builtins(ctx: &mut SemanticContext) {
         ty: SymbolType::Function {
             params: vec![],
             ret: number,
+        },
+        span: Span::new(0, 0),
+    });
+    ctx.declare(Symbol {
+        name: "print".to_string(),
+        kind: SymbolKind::Function,
+        ty: SymbolType::Function {
+            params: vec![string],
+            ret: string,
         },
         span: Span::new(0, 0),
     });

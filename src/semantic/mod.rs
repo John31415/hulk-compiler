@@ -10,3 +10,6 @@ pub mod test_utils;
 pub mod types;
 
 pub use analyzer::SemanticAnalyzer;
+
+#[cfg(test)]
+mod tests;
