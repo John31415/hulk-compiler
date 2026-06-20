@@ -41,10 +41,6 @@ impl<'ctx> Backend<'ctx> {
                     layout.field_types.push(llvm_ty);
                 }
             }
-            // Registra el slot global de cada método ANTES de que se
-            // construya ninguna vtable, para que el tamaño total de
-            // slots (method_slots.total_slots()) sea correcto y estable
-            // sin importar el orden en que se declaren los tipos.
             self.declare_class_methods(name, &features)?;
         }
         Ok(())
@@ -129,22 +125,12 @@ impl<'ctx> Backend<'ctx> {
                     layout.field_types.push(llvm_type_of(*attr_type_id));
                 }
             }
-            // El campo 0 ahora es el puntero a la vtable del tipo
-            // dinámico real (antes era un i32 con el tag crudo).
             let mut struct_fields: Vec<BasicTypeEnum<'ctx>> = vec![ptr_ty.into()];
             struct_fields.extend(layout.field_types.iter().copied());
             layout.struct_type.set_body(&struct_fields, false);
             layout.struct_type
         };
-
-        // --- Construcción de la vtable de este tipo ---
-        // Se hace aquí (no en declare_type) porque necesita que TODOS los
-        // métodos de TODOS los tipos ya estén declarados (sus FunctionValue
-        // deben existir, aunque su cuerpo todavía no se haya compilado, lo
-        // cual es seguro: un puntero a función es válido en cuanto la
-        // función fue añadida al módulo).
         self.build_vtable_global(name, *type_id)?;
-
         let entry = self.llvm_context.append_basic_block(ctor_fn, "entry");
         self.builder.position_at_end(entry);
         let old_fn = self.current_function;
@@ -194,12 +180,6 @@ impl<'ctx> Backend<'ctx> {
                     .build_call(parent_ctor, &call_args, "call_parent_ctor")
                     .map_err(|_| BackendError::InvalidExpression)?;
             }
-
-            // Escribir el puntero a la vtable de ESTE tipo (no la del
-            // padre) en el campo 0. Se hace después de llamar al
-            // constructor padre para que el tag/vtable más derivado
-            // siempre prevalezca sobre el que el padre pudo haber
-            // escrito para sí mismo.
             let vtable_global = self
                 .types
                 .get_layout(*type_id)
@@ -213,7 +193,6 @@ impl<'ctx> Backend<'ctx> {
             self.builder
                 .build_store(vtable_slot_ptr, vtable_ptr)
                 .map_err(|_| BackendError::InvalidExpression)?;
-
             let mut own_attr_index = 0usize;
             for feature in features {
                 if let TypedTypeFeatureKind::Attribute {
@@ -253,21 +232,6 @@ impl<'ctx> Backend<'ctx> {
         self.current_method = old_method;
         result
     }
-
-    /// Construye la vtable global de `type_id` (nombre `name`), resolviendo
-    /// para cada slot de método global cuál implementación usar:
-    ///
-    /// 1. Si este tipo (o algún ancestro) declara el método, usa la
-    ///    implementación más derivada (la del primer tipo, subiendo desde
-    ///    `type_id`, que lo define).
-    /// 2. Si ningún ancestro lo declara, el slot apunta a la función trap
-    ///    `hulk_unreachable_method` (no debería invocarse nunca si el
-    ///    análisis semántico es correcto).
-    ///
-    /// La vtable se representa como `{ i32 tag, [N-1 x ptr] methods }`:
-    /// el tag (usado por `is`/`as`) va en un campo aparte, y los punteros
-    /// a función ocupan el arreglo, indexados por `method_slots` menos 1
-    /// (el slot 0 global, reservado al tag, no tiene entrada en el array).
     fn build_vtable_global(
         &mut self,
         name: &str,
@@ -276,27 +240,19 @@ impl<'ctx> Backend<'ctx> {
         let ptr_ty = self.llvm_context.ptr_type(AddressSpace::default());
         let i32_ty = self.llvm_context.i32_type();
         let total_slots = self.method_slots.total_slots();
-        let method_count = total_slots - 1; // sin contar el slot 0 (tag)
-
+        let method_count = total_slots - 1;
         let unreachable_fn = self
             .runtime
             .unreachable_method
             .ok_or(BackendError::InvalidExpression)?;
-
         let mut method_ptrs: Vec<inkwell::values::PointerValue<'ctx>> =
             Vec::with_capacity(method_count as usize);
-
         for slot_index in 1..total_slots {
             let method_name = self
                 .method_slots
                 .name_for_slot(slot_index)
                 .ok_or(BackendError::InvalidExpression)?
                 .to_string();
-
-            // Busca, subiendo por la cadena de padres desde `type_id`, el
-            // primer tipo que define `method_name`. Se hace manualmente
-            // para no tomar prestado `self.types` y `self.functions` al
-            // mismo tiempo dentro de un closure.
             let mut search_id = type_id;
             let fn_ptr = loop {
                 let owner_name = self
@@ -320,10 +276,8 @@ impl<'ctx> Backend<'ctx> {
             };
             method_ptrs.push(fn_ptr);
         }
-
         let methods_array_type = ptr_ty.array_type(method_count);
         let methods_array_const = ptr_ty.const_array(&method_ptrs);
-
         let vtable_struct_type = self
             .llvm_context
             .struct_type(&[i32_ty.into(), methods_array_type.into()], false);
@@ -337,12 +291,10 @@ impl<'ctx> Backend<'ctx> {
             .add_global(vtable_struct_type, None, &global_name);
         global.set_initializer(&vtable_const);
         global.set_constant(true);
-
         if let Some(layout) = self.types.get_layout_mut(type_id) {
             layout.vtable_struct_type = Some(vtable_struct_type);
             layout.vtable_global = Some(global);
         }
-
         Ok(())
     }
 }

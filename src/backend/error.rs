@@ -5,7 +5,6 @@ pub enum BackendError {
     UnknownType(String),
     UnknownFunction(String),
     UndefinedVariable,
-    VerificationFailed(String),
     Io(std::io::Error),
     InvalidExpression,
 }
@@ -16,7 +15,6 @@ impl fmt::Display for BackendError {
             BackendError::UnknownType(t) => write!(f, "unknown type: {}", t),
             BackendError::UnknownFunction(name) => write!(f, "unknown function: {}", name),
             BackendError::UndefinedVariable => write!(f, "undefined variable"),
-            BackendError::VerificationFailed(msg) => write!(f, "llvm verification failed: {}", msg),
             BackendError::InvalidExpression => write!(f, "invalid expression"),
             BackendError::Io(err) => write!(f, "io error: {}", err),
         }

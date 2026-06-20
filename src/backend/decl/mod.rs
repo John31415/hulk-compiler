@@ -2,12 +2,9 @@ pub mod decl_types;
 pub mod functions;
 pub mod methods;
 
-use crate::{
-    backend::emit::verify_module,
-    semantic::{
-        SemanticAnalyzer,
-        hir::{TypedDecl, TypedDeclKind, TypedProgram},
-    },
+use crate::semantic::{
+    SemanticAnalyzer,
+    hir::{TypedDecl, TypedDeclKind, TypedProgram},
 };
 
 use super::{Backend, BackendError, BackendResult};
@@ -39,7 +36,6 @@ impl<'ctx> Backend<'ctx> {
         self.builder
             .build_return(Some(&i32_type.const_int(0, false)))
             .map_err(|_| BackendError::InvalidExpression)?;
-        verify_module(&self.module)?;
         Ok(())
     }
 
