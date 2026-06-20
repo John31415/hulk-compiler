@@ -180,12 +180,6 @@ impl TypeTable {
         }
     }
 
-    pub fn set_constructor_params(&mut self, type_id: TypeId, params: Vec<ConstructorParam>) {
-        if let Some(type_info) = self.infos.get_mut(type_id.0) {
-            type_info.constructor_params = params;
-        }
-    }
-
     pub fn set_declared_constructor_params(
         &mut self,
         type_id: TypeId,
