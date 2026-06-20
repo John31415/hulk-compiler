@@ -10,9 +10,13 @@ use crate::semantic::{
 use super::{Backend, BackendError, BackendResult};
 
 impl<'ctx> Backend<'ctx> {
-    pub fn declare_program(&mut self, program: &TypedProgram) -> BackendResult<()> {
+    pub fn declare_program(
+        &mut self,
+        program: &TypedProgram,
+        sema: &SemanticAnalyzer,
+    ) -> BackendResult<()> {
         if let Some(decls) = &program.node.decls {
-            self.declare_top_level(decls)?;
+            self.declare_top_level(decls, sema)?;
         }
         Ok(())
     }
@@ -22,7 +26,7 @@ impl<'ctx> Backend<'ctx> {
         program: &TypedProgram,
         sema: &SemanticAnalyzer,
     ) -> BackendResult<()> {
-        self.declare_program(program)?;
+        self.declare_program(program, sema)?;
         if let Some(decls) = &program.node.decls {
             self.compile_top_level(decls, sema)?;
         }
@@ -39,14 +43,18 @@ impl<'ctx> Backend<'ctx> {
         Ok(())
     }
 
-    fn declare_top_level(&mut self, decls: &[TypedDecl]) -> BackendResult<()> {
+    fn declare_top_level(
+        &mut self,
+        decls: &[TypedDecl],
+        sema: &SemanticAnalyzer,
+    ) -> BackendResult<()> {
         for decl in decls {
             match &decl.node {
                 TypedDeclKind::Function { .. } => {
                     self.declare_function(decl)?;
                 }
                 TypedDeclKind::Type { .. } => {
-                    self.declare_type(decl)?;
+                    self.declare_type(decl, sema)?;
                 }
             }
         }

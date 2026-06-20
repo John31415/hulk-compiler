@@ -15,7 +15,7 @@ use super::BackendError;
 use inkwell::types::{BasicMetadataTypeEnum, BasicTypeEnum};
 
 impl<'ctx> Backend<'ctx> {
-    pub fn declare_type(&mut self, decl: &TypedDecl) -> BackendResult<()> {
+    pub fn declare_type(&mut self, decl: &TypedDecl, sema: &SemanticAnalyzer) -> BackendResult<()> {
         if let TypedDeclKind::Type {
             name,
             parent,
@@ -40,6 +40,20 @@ impl<'ctx> Backend<'ctx> {
                     layout.field_names.push(name);
                     layout.field_types.push(llvm_ty);
                 }
+            }
+            let ctor_name = FunctionRegistry::mangle_constructor(name);
+            if self.functions.get_constructor(&ctor_name).is_none() {
+                let ptr_ty = self.llvm_context.ptr_type(AddressSpace::default());
+                let effective_ctor_params = sema.ctx.types.get_constructor_params(*type_id);
+                let mut ctor_param_types: Vec<BasicMetadataTypeEnum<'ctx>> = vec![ptr_ty.into()];
+                for p in effective_ctor_params {
+                    let p_ty =
+                        p.ty.unwrap_or_else(|| sema.ctx.types.resolve("Object").unwrap());
+                    ctor_param_types.push(self.types.get_llvm_type(p_ty).into());
+                }
+                let ctor_fn_type = ptr_ty.fn_type(&ctor_param_types, false);
+                let ctor_fn = self.module.add_function(&ctor_name, ctor_fn_type, None);
+                self.functions.insert_constructor(&ctor_name, ctor_fn);
             }
             self.declare_class_methods(name, &features)?;
         }
