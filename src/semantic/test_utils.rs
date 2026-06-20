@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use chumsky::Parser;
 
 use crate::{ast::Program, lexer::Lexer, parser::program::program_parser};

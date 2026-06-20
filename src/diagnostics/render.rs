@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::diagnostics::{Diagnostic, DiagnosticLevel};
 use ariadne::{Color, Label, Report, ReportKind, Source};
 

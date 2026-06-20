@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use crate::lexer::Span;
 
 #[derive(Debug, Clone, PartialEq)]
