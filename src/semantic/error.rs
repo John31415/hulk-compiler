@@ -209,6 +209,9 @@ pub enum SemanticErrorKind {
         expected: String,
     },
     InvalidPropertyAccess,
+    GenericInferenceFailed {
+        function: String,
+    },
 }
 
 impl SemanticErrorKind {
@@ -553,6 +556,12 @@ impl SemanticErrorKind {
             }
             Self::InvalidPropertyAccess => {
                 format!("properties are private and can only be accessed via 'self'",)
+            }
+            Self::GenericInferenceFailed { function } => {
+                format!(
+                    "cannot infer the parameter/return types of '{}': the inference depends circularly on itself and the body does not provide enough information to break the cycle. Please annotate the parameter and/or return types explicitly (e.g. 'function {}(n: Number): Number')",
+                    function, function
+                )
             }
         }
     }
