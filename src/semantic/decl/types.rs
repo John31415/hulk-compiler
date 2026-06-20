@@ -164,7 +164,7 @@ impl SemanticAnalyzer {
                     self.resolve_builtin("Object")
                 }
             };
-            let wrap_typed_args = typed_args.is_empty().then_some(typed_args);
+            let wrap_typed_args = (!typed_args.is_empty()).then_some(typed_args);
             TypedInheritInfo::new(
                 TypedInheritInfoKind {
                     parent_type: type_id,
