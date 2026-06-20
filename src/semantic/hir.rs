@@ -42,6 +42,7 @@ pub struct TypedProgram {
 pub struct TypedProgramKind {
     pub decls: Option<Vec<TypedDecl>>,
     pub body: TypedExpr,
+    pub monomorphized_functions: Vec<TypedDecl>,
 }
 
 pub type TypedDecl = DeclSpanned<TypedDeclKind>;
@@ -61,6 +62,17 @@ pub enum TypedDeclKind {
         features: Vec<TypedTypeFeature>,
         type_id: TypeId,
     },
+}
+
+impl TypedDecl {
+    pub fn node_return_type(&self) -> TypeId {
+        match &self.node {
+            TypedDeclKind::Function { return_type, .. } => *return_type,
+            TypedDeclKind::Type { .. } => {
+                panic!("node_return_type called on a TypedDeclKind::Type")
+            }
+        }
+    }
 }
 
 pub type TypedExpr = TypedSpanned<TypedExprKind>;
