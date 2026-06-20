@@ -17,6 +17,7 @@ pub struct ConstructorParam {
 pub struct TypeInfo {
     pub name: String,
     pub parent: Option<TypeId>,
+    pub declared_constructor_params: Option<Vec<ConstructorParam>>,
     pub constructor_params: Vec<ConstructorParam>,
     pub attributes: HashMap<String, Symbol>,
     pub methods: HashMap<String, Symbol>,
@@ -56,6 +57,7 @@ impl TypeTable {
         self.infos.push(TypeInfo {
             name: name.clone(),
             parent,
+            declared_constructor_params: None,
             constructor_params: Vec::new(),
             attributes: HashMap::new(),
             methods: HashMap::new(),
@@ -179,6 +181,26 @@ impl TypeTable {
     }
 
     pub fn set_constructor_params(&mut self, type_id: TypeId, params: Vec<ConstructorParam>) {
+        if let Some(type_info) = self.infos.get_mut(type_id.0) {
+            type_info.constructor_params = params;
+        }
+    }
+
+    pub fn set_declared_constructor_params(
+        &mut self,
+        type_id: TypeId,
+        params: Option<Vec<ConstructorParam>>,
+    ) {
+        if let Some(type_info) = self.infos.get_mut(type_id.0) {
+            type_info.declared_constructor_params = params;
+        }
+    }
+
+    pub fn set_effective_constructor_params(
+        &mut self,
+        type_id: TypeId,
+        params: Vec<ConstructorParam>,
+    ) {
         if let Some(type_info) = self.infos.get_mut(type_id.0) {
             type_info.constructor_params = params;
         }
