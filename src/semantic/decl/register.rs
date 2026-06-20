@@ -15,21 +15,39 @@ impl SemanticAnalyzer {
                     return_type,
                     ..
                 } => {
-                    let mut param_types = Vec::new();
+                    let mut param_types: Vec<Option<crate::semantic::types::TypeId>> = Vec::new();
+                    let mut any_param_generic = false;
                     for (_, param_type_opt) in params {
-                        let p_type = param_type_opt
-                            .as_ref()
-                            .and_then(|t| self.ctx.types.resolve(t))
-                            .unwrap_or_else(|| self.ctx.types.resolve("Object").unwrap());
-                        param_types.push(p_type);
+                        match param_type_opt {
+                            Some(type_name) => {
+                                let resolved = self.ctx.types.resolve(type_name);
+                                if resolved.is_none() {
+                                    any_param_generic = true;
+                                }
+                                param_types.push(resolved);
+                            }
+                            None => {
+                                any_param_generic = true;
+                                param_types.push(None);
+                            }
+                        }
                     }
-                    let ret_type = return_type
-                        .as_ref()
-                        .and_then(|t| self.ctx.types.resolve(t))
-                        .unwrap_or_else(|| self.ctx.types.resolve("Object").unwrap());
-                    let new_ty = SymbolType::Function {
-                        params: param_types,
-                        ret: ret_type,
+                    let ret_resolved = return_type.as_ref().and_then(|t| self.ctx.types.resolve(t));
+                    let ret_is_generic =
+                        return_type.is_some() && ret_resolved.is_none() || return_type.is_none();
+                    let new_ty = if any_param_generic || ret_is_generic {
+                        self.ctx.register_generic_decl(name.clone(), decl.clone());
+                        SymbolType::GenericFunction {
+                            param_types,
+                            ret_type: ret_resolved,
+                        }
+                    } else {
+                        let concrete_params: Vec<_> =
+                            param_types.into_iter().map(|t| t.unwrap()).collect();
+                        SymbolType::Function {
+                            params: concrete_params,
+                            ret: ret_resolved.unwrap(),
+                        }
                     };
                     if !self.ctx.update_symbol_type(name, new_ty.clone()) {
                         self.ctx.declare(Symbol {

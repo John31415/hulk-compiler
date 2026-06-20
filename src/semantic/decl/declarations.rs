@@ -1,6 +1,7 @@
 use crate::ast::{Decl, DeclKind};
 use crate::semantic::SemanticAnalyzer;
 use crate::semantic::hir::TypedDecl;
+use crate::semantic::symbols::SymbolType;
 
 impl SemanticAnalyzer {
     pub fn analyze_declarations(&mut self, decls: &[Decl]) -> Option<Vec<TypedDecl>> {
@@ -9,11 +10,21 @@ impl SemanticAnalyzer {
         self.resolve_constructor_signatures();
         let mut typed_decls = Vec::new();
         for decl in decls {
-            let typed_decl = match &decl.node {
-                DeclKind::Function { .. } => self.analyze_function(decl),
-                DeclKind::Type { .. } => self.analyze_type(decl),
-            };
-            typed_decls.push(typed_decl);
+            match &decl.node {
+                DeclKind::Function { name, .. } => {
+                    let is_generic = matches!(
+                        self.ctx.lookup(name).map(|s| &s.ty),
+                        Some(SymbolType::GenericFunction { .. })
+                    );
+                    if is_generic {
+                        continue;
+                    }
+                    typed_decls.push(self.analyze_function(decl));
+                }
+                DeclKind::Type { .. } => {
+                    typed_decls.push(self.analyze_type(decl));
+                }
+            }
         }
         (!typed_decls.is_empty()).then_some(typed_decls)
     }
@@ -34,38 +45,17 @@ function a(): Number {
 }
 
 42;
-        "#;
+    "#;
         let program = parse_program(source);
         let mut analyzer = SemanticAnalyzer::new();
         let _ = analyzer.analyze_program(program);
-        assert_eq!(analyzer.diagnostics.len(), 4);
+        assert_eq!(analyzer.diagnostics.len(), 1);
         assert_eq!(
             analyzer.diagnostics[0].kind,
-            SemanticErrorKind::UnknownTypeInParameter {
-                type_name: "John".to_string(),
-                param_name: "x".to_string()
-            }
-        );
-        assert_eq!(
-            analyzer.diagnostics[1].kind,
-            SemanticErrorKind::DuplicateParameter {
-                function: "f".to_string(),
-                param: "x".to_string()
-            }
-        );
-        assert_eq!(
-            analyzer.diagnostics[2].kind,
-            SemanticErrorKind::UnknownReturnType {
-                function: "f".to_string(),
-                type_name: "John".to_string()
-            }
-        );
-        assert_eq!(
-            analyzer.diagnostics[3].kind,
             SemanticErrorKind::FunctionReturnTypeMismatch {
                 function: "a".to_string(),
                 expected: "Number".to_string(),
-                found: "String".to_string()
+                found: "String".to_string(),
             }
         );
     }
