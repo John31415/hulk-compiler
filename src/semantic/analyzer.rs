@@ -26,6 +26,18 @@ impl SemanticAnalyzer {
         self.collect_declarations(decls);
         let typed_decls = self.analyze_declarations(decls);
         let typed_entry = self.analyze_expr(entry);
+        let monomorphized_functions = self
+            .ctx
+            .instantiation_order
+            .iter()
+            .map(|key| {
+                self.ctx
+                    .generic_instances
+                    .get(key)
+                    .cloned()
+                    .expect("instantiation_order key must exist in generic_instances")
+            })
+            .collect();
         if self.has_errors() {
             return Err(self.diagnostics.clone());
         }
@@ -33,6 +45,7 @@ impl SemanticAnalyzer {
             node: TypedProgramKind {
                 decls: typed_decls,
                 body: typed_entry,
+                monomorphized_functions,
             },
             span: program.span,
         };
