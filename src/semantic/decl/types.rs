@@ -90,63 +90,65 @@ impl SemanticAnalyzer {
                         .types
                         .get_constructor_params(parent_type_id)
                         .to_vec();
-                    let actual_args = inherit_info
-                        .node
-                        .args
-                        .as_ref()
-                        .map(|v| v.as_slice())
-                        .unwrap_or_default();
-                    if actual_args.len() != expected_parent_params.len() {
-                        self.diagnostics.push(
-                            SemanticError::new(
-                                SemanticErrorKind::InvalidInheritanceArity {
-                                    parent: inherit_info.node.parent_name.to_string(),
-                                    expected: expected_parent_params.len(),
-                                    found: actual_args.len(),
-                                },
-                                type_decl.span,
-                            )
-                            .into(),
-                        );
-                    }
-                    for (i, arg_expr) in actual_args.iter().enumerate() {
-                        let arg_expr_type = self.analyze_expr(arg_expr);
-                        if i < expected_parent_params.len() {
-                            let param_info = &expected_parent_params[i];
-                            let expected_type_id = match param_info.ty {
-                                Some(id) => id,
-                                None => object_type,
-                            };
-                            if !self
-                                .ctx
-                                .types
-                                .is_subtype_of(arg_expr_type.ty, expected_type_id)
-                            {
-                                self.diagnostics.push(
-                                    SemanticError::new(
-                                        SemanticErrorKind::InheritanceArgumentTypeMismatch {
-                                            parent: inherit_info.node.parent_name.to_string(),
-                                            param: param_info.name.to_string(),
-                                            expected: self
-                                                .ctx
-                                                .types
-                                                .get(expected_type_id)
-                                                .name
-                                                .clone(),
-                                            found: self
-                                                .ctx
-                                                .types
-                                                .get(arg_expr_type.ty)
-                                                .name
-                                                .clone(),
-                                        },
-                                        arg_expr.span,
-                                    )
-                                    .into(),
-                                );
-                            }
+                    if let Some(actual_args) = &inherit_info.node.args {
+                        // let actual_args = inherit_info
+                        //     .node
+                        //     .args
+                        //     .as_ref()
+                        //     .map(|v| v.as_slice())
+                        //     .unwrap_or_default();
+                        if actual_args.len() != expected_parent_params.len() {
+                            self.diagnostics.push(
+                                SemanticError::new(
+                                    SemanticErrorKind::InvalidInheritanceArity {
+                                        parent: inherit_info.node.parent_name.to_string(),
+                                        expected: expected_parent_params.len(),
+                                        found: actual_args.len(),
+                                    },
+                                    type_decl.span,
+                                )
+                                .into(),
+                            );
                         }
-                        typed_args.push(arg_expr_type);
+                        for (i, arg_expr) in actual_args.iter().enumerate() {
+                            let arg_expr_type = self.analyze_expr(arg_expr);
+                            if i < expected_parent_params.len() {
+                                let param_info = &expected_parent_params[i];
+                                let expected_type_id = match param_info.ty {
+                                    Some(id) => id,
+                                    None => object_type,
+                                };
+                                if !self
+                                    .ctx
+                                    .types
+                                    .is_subtype_of(arg_expr_type.ty, expected_type_id)
+                                {
+                                    self.diagnostics.push(
+                                        SemanticError::new(
+                                            SemanticErrorKind::InheritanceArgumentTypeMismatch {
+                                                parent: inherit_info.node.parent_name.to_string(),
+                                                param: param_info.name.to_string(),
+                                                expected: self
+                                                    .ctx
+                                                    .types
+                                                    .get(expected_type_id)
+                                                    .name
+                                                    .clone(),
+                                                found: self
+                                                    .ctx
+                                                    .types
+                                                    .get(arg_expr_type.ty)
+                                                    .name
+                                                    .clone(),
+                                            },
+                                            arg_expr.span,
+                                        )
+                                        .into(),
+                                    );
+                                }
+                            }
+                            typed_args.push(arg_expr_type);
+                        }
                     }
                     parent_type_id
                 }

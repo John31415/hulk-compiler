@@ -6,6 +6,7 @@ impl SemanticAnalyzer {
     pub fn analyze_declarations(&mut self, decls: &[Decl]) -> Option<Vec<TypedDecl>> {
         self.register_signatures(decls);
         self.check_circular_inheritance(decls);
+        self.resolve_constructor_signatures();
         let mut typed_decls = Vec::new();
         for decl in decls {
             let typed_decl = match &decl.node {

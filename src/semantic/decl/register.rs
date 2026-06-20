@@ -77,20 +77,21 @@ impl SemanticAnalyzer {
                             }
                         }
                     }
-                    let mut constructor_params = Vec::new();
-                    if let Some(param_list) = params {
+                    let constructor_params = params.as_ref().map(|param_list| {
+                        let mut v = Vec::new();
                         for (p_name, p_type_opt) in param_list {
                             let p_type =
                                 p_type_opt.as_ref().and_then(|t| self.ctx.types.resolve(t));
-                            constructor_params.push(ConstructorParam {
+                            v.push(ConstructorParam {
                                 name: p_name.clone(),
                                 ty: p_type,
                             });
                         }
-                    }
+                        v
+                    });
                     self.ctx
                         .types
-                        .set_constructor_params(current_type_id, constructor_params);
+                        .set_declared_constructor_params(current_type_id, constructor_params);
                     for feature in features {
                         if let TypeFeaturesKind::Method {
                             name: method_name,
