@@ -18,6 +18,9 @@ impl<'ctx> Backend<'ctx> {
         if let Some(decls) = &program.node.decls {
             self.declare_top_level(decls, sema)?;
         }
+        for instance_decl in &program.node.monomorphized_functions {
+            self.declare_function(instance_decl)?;
+        }
         Ok(())
     }
 
@@ -29,6 +32,9 @@ impl<'ctx> Backend<'ctx> {
         self.declare_program(program, sema)?;
         if let Some(decls) = &program.node.decls {
             self.compile_top_level(decls, sema)?;
+        }
+        for instance_decl in &program.node.monomorphized_functions {
+            self.compile_function(instance_decl, sema)?;
         }
         let i32_type = self.llvm_context.i32_type();
         let main_fn_type = i32_type.fn_type(&[], false);
