@@ -14,7 +14,20 @@ pub enum SymbolKind {
 #[derive(Debug, Clone)]
 pub enum SymbolType {
     Variable(TypeId),
-    Function { params: Vec<TypeId>, ret: TypeId },
+    Function {
+        params: Vec<TypeId>,
+        ret: TypeId,
+    },
+    GenericFunction {
+        param_types: Vec<Option<TypeId>>,
+        ret_type: Option<TypeId>,
+    },
+}
+
+impl SymbolType {
+    pub fn is_generic(&self) -> bool {
+        matches!(self, SymbolType::GenericFunction { .. })
+    }
 }
 
 #[derive(Debug, Clone)]
