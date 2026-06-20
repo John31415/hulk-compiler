@@ -18,7 +18,7 @@ impl SemanticAnalyzer {
         let type_id = if let Some(symbol) = self.ctx.lookup(name) {
             match symbol.ty {
                 SymbolType::Variable(type_id) => type_id,
-                SymbolType::Function { .. } => {
+                SymbolType::Function { .. } | SymbolType::GenericFunction { .. } => {
                     self.diagnostics.push(
                         SemanticError::new(
                             SemanticErrorKind::NotAVariable {

@@ -8,39 +8,42 @@ use crate::semantic::{analyzer::SemanticAnalyzer, types::TypeId};
 impl SemanticAnalyzer {
     pub fn analyze_call(&mut self, name: &str, args: &Vec<Expr>, span: Span) -> TypedExpr {
         let object_type = self.resolve_builtin("Object");
-        let function_sig = if let Some(symbol) = self.ctx.lookup(name) {
-            match &symbol.ty {
-                SymbolType::Function { params, ret } => Some((params.clone(), *ret)),
-                SymbolType::Variable(_) => {
-                    self.diagnostics.push(
-                        SemanticError::new(
-                            SemanticErrorKind::NotAFunction {
-                                name: name.to_string(),
-                            },
-                            span,
-                        )
-                        .into(),
-                    );
-                    return TypedExpr::new(
-                        TypedExprKind::Call {
-                            name: name.into(),
-                            args: vec![],
+        let symbol_ty = self.ctx.lookup(name).map(|s| s.ty.clone());
+        let resolved = match symbol_ty {
+            Some(SymbolType::Function { params, ret }) => CallResolution::Concrete {
+                param_types: params,
+                return_type: ret,
+                call_name: name.to_string(),
+            },
+            Some(SymbolType::GenericFunction { .. }) => CallResolution::Generic,
+            Some(SymbolType::Variable(_)) => {
+                self.diagnostics.push(
+                    SemanticError::new(
+                        SemanticErrorKind::NotAFunction {
+                            name: name.to_string(),
                         },
-                        object_type,
                         span,
-                    );
-                }
+                    )
+                    .into(),
+                );
+                return TypedExpr::new(
+                    TypedExprKind::Call {
+                        name: name.into(),
+                        args: vec![],
+                    },
+                    object_type,
+                    span,
+                );
             }
-        } else {
-            None
-        };
-        let (param_types, return_type) = match function_sig {
-            Some(sig) => sig,
             None => {
                 if let Some(current_type_id) = self.ctx.current_type {
                     if let Some((params, ret)) = self.ctx.types.lookup_method(current_type_id, name)
                     {
-                        (params, ret)
+                        CallResolution::Concrete {
+                            param_types: params,
+                            return_type: ret,
+                            call_name: name.to_string(),
+                        }
                     } else {
                         self.diagnostics.push(
                             SemanticError::new(
@@ -81,11 +84,32 @@ impl SemanticAnalyzer {
                 }
             }
         };
+        match resolved {
+            CallResolution::Concrete {
+                param_types,
+                return_type,
+                call_name,
+            } => {
+                self.analyze_concrete_call(&call_name, name, args, &param_types, return_type, span)
+            }
+            CallResolution::Generic => self.analyze_generic_call(name, args, span),
+        }
+    }
+
+    fn analyze_concrete_call(
+        &mut self,
+        call_name: &str,
+        display_name: &str,
+        args: &[Expr],
+        param_types: &[TypeId],
+        return_type: TypeId,
+        span: Span,
+    ) -> TypedExpr {
         if args.len() != param_types.len() {
             self.diagnostics.push(
                 SemanticError::new(
                     SemanticErrorKind::InvalidFunctionArity {
-                        name: name.to_string(),
+                        name: display_name.to_string(),
                         expected: param_types.len(),
                         found: args.len(),
                     },
@@ -103,7 +127,7 @@ impl SemanticAnalyzer {
                     self.diagnostics.push(
                         SemanticError::new(
                             SemanticErrorKind::FunctionArgumentTypeMismatch {
-                                name: name.to_string(),
+                                name: display_name.to_string(),
                                 index: i + 1,
                                 expected: self.ctx.types.get(expected_type).name.clone(),
                                 found: self.ctx.types.get(arg_type.ty).name.clone(),
@@ -118,7 +142,91 @@ impl SemanticAnalyzer {
         }
         TypedExpr::new(
             TypedExprKind::Call {
-                name: name.into(),
+                name: call_name.into(),
+                args: typed_args,
+            },
+            return_type,
+            span,
+        )
+    }
+
+    fn analyze_generic_call(&mut self, name: &str, args: &[Expr], span: Span) -> TypedExpr {
+        let object_type = self.resolve_builtin("Object");
+        let (param_types_decl, declared_arity) = match self.ctx.lookup(name).map(|s| &s.ty) {
+            Some(SymbolType::GenericFunction { param_types, .. }) => {
+                (param_types.clone(), param_types.len())
+            }
+            _ => unreachable!("analyze_generic_call called for a non-generic symbol"),
+        };
+        if args.len() != declared_arity {
+            self.diagnostics.push(
+                SemanticError::new(
+                    SemanticErrorKind::InvalidFunctionArity {
+                        name: name.to_string(),
+                        expected: declared_arity,
+                        found: args.len(),
+                    },
+                    span,
+                )
+                .into(),
+            );
+        }
+        let mut typed_args = Vec::new();
+        let mut instance_key_types = Vec::new();
+        for (i, arg) in args.iter().enumerate() {
+            let arg_type = self.analyze_expr(arg);
+            let declared = param_types_decl.get(i).copied().flatten();
+            match declared {
+                Some(expected_type) => {
+                    if !self.ctx.types.is_subtype_of(arg_type.ty, expected_type) {
+                        self.diagnostics.push(
+                            SemanticError::new(
+                                SemanticErrorKind::FunctionArgumentTypeMismatch {
+                                    name: name.to_string(),
+                                    index: i + 1,
+                                    expected: self.ctx.types.get(expected_type).name.clone(),
+                                    found: self.ctx.types.get(arg_type.ty).name.clone(),
+                                },
+                                arg.span,
+                            )
+                            .into(),
+                        );
+                    }
+                    instance_key_types.push(expected_type);
+                }
+                None => {
+                    instance_key_types.push(arg_type.ty);
+                }
+            }
+            typed_args.push(arg_type);
+        }
+        let key = (name.to_string(), instance_key_types.clone());
+        let (mangled_name, return_type) = if let Some(existing) = self.ctx.get_instance(&key) {
+            let ret = existing.node_return_type();
+            (
+                self.ctx.mangle_instance_name(name, &instance_key_types),
+                ret,
+            )
+        } else if self.ctx.is_in_progress(&key) {
+            self.diagnostics.push(
+                SemanticError::new(
+                    SemanticErrorKind::GenericInferenceFailed {
+                        function: name.to_string(),
+                    },
+                    span,
+                )
+                .into(),
+            );
+            (name.to_string(), object_type)
+        } else {
+            match self.instantiate_generic_function(name, &instance_key_types, span) {
+                Some((mangled_name, ret)) => (mangled_name, ret),
+                None => (name.to_string(), object_type),
+            }
+        };
+        TypedExpr::new(
+            TypedExprKind::Call {
+                name: mangled_name,
                 args: typed_args,
             },
             return_type,
@@ -203,6 +311,15 @@ impl SemanticAnalyzer {
         }
         None
     }
+}
+
+enum CallResolution {
+    Concrete {
+        param_types: Vec<TypeId>,
+        return_type: TypeId,
+        call_name: String,
+    },
+    Generic,
 }
 
 #[cfg(test)]

@@ -56,8 +56,7 @@ impl SemanticAnalyzer {
                         )
                         .into(),
                     );
-                }
-                if (left_type.ty != string_type && left_type.ty != number_type)
+                } else if (left_type.ty != string_type && left_type.ty != number_type)
                     || (right_type.ty != string_type && right_type.ty != number_type)
                 {
                     self.diagnostics.push(
