@@ -77,7 +77,6 @@ pub fn let_expr_parser<'src>(
                 )
             })
     })
-    .or(lower)
 }
 
 #[cfg(test)]

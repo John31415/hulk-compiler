@@ -25,8 +25,8 @@ pub fn expr_parser<'src>() -> impl Parser<'src, &'src [Token], Expr, extra::Err<
 {
     recursive(|expr| {
         let paren_expr = expr.clone().delimited_by(
-            select_ref! {Token{kind: TokenKind::LParen, ..} => ()},
-            select_ref! {Token{kind: TokenKind::RParen, ..} => ()},
+            select_ref! { Token { kind: TokenKind::LParen, .. } => () },
+            select_ref! { Token { kind: TokenKind::RParen, .. } => () },
         );
         let block = block_parser(expr.clone());
         let primary = choice((primary_parser(), paren_expr, block)).boxed();
@@ -37,17 +37,17 @@ pub fn expr_parser<'src>() -> impl Parser<'src, &'src [Token], Expr, extra::Err<
         let product = product_parser(exponent).boxed();
         let sum = sum_at_parser(product).boxed();
         let comparison = comparison_parser(sum).boxed();
-        let is = is_parser(comparison).boxed();
-        let as_expr = as_expr_parser(is).boxed();
+        let is_expr = is_parser(comparison).boxed();
+        let as_expr = as_expr_parser(is_expr).boxed();
         let equality = equality_parser(as_expr).boxed();
         let logical_and = logical_and_parser(equality).boxed();
         let logical_or = logical_or_parser(logical_and).boxed();
-        let if_expr = if_expr_parser(logical_or).boxed();
-        let while_expr = while_expr_parser(if_expr).boxed();
-        let for_expr = for_expr_parser(while_expr).boxed();
-        let let_expr = let_expr_parser(for_expr).boxed();
-        let assign = assign_parser(let_expr).boxed();
-        assign
+        let assign = assign_parser(logical_or.clone()).boxed();
+        let let_expr = let_expr_parser(expr.clone()).boxed();
+        let if_expr = if_expr_parser(expr.clone()).boxed();
+        let while_expr = while_expr_parser(expr.clone()).boxed();
+        let for_expr = for_expr_parser(expr.clone()).boxed();
+        choice((let_expr, if_expr, while_expr, for_expr, assign, logical_or)).boxed()
     })
 }
 
@@ -129,4 +129,3 @@ mod tests {
         assert_yaml_snapshot!(ast);
     }
 }
-

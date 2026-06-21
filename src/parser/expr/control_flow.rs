@@ -52,7 +52,6 @@ pub fn if_expr_parser<'src>(
         } => ()
     }
     .ignore_then(if_chain)
-    .or(lower)
 }
 
 pub fn while_expr_parser<'src>(
@@ -83,7 +82,6 @@ pub fn while_expr_parser<'src>(
             span,
         )
     })
-    .or(lower)
 }
 
 pub fn for_expr_parser<'src>(
@@ -129,7 +127,6 @@ pub fn for_expr_parser<'src>(
             span,
         )
     })
-    .or(lower)
 }
 
 #[cfg(test)]
