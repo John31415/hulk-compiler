@@ -4,8 +4,27 @@ use crate::{
 };
 use chumsky::error::Rich;
 
-pub fn rich_to_diagnostic(error: Rich<Token>) -> Diagnostic {
-    let span = Span::from_range(error.span().into_range());
+pub fn span_from_token_slice(tokens: &[Token]) -> Span {
+    match (tokens.first(), tokens.last()) {
+        (Some(first), Some(last)) => Span::new(first.span.start, last.span.end),
+        _ => Span::new(0, 0),
+    }
+}
+
+pub fn rich_to_diagnostic(error: Rich<Token>, tokens: &[Token]) -> Diagnostic {
+    let error_range = error.span().into_range();
+    let error_tokens = if error_range.start < tokens.len() {
+        &tokens[error_range.start..error_range.end.min(tokens.len())]
+    } else {
+        &[]
+    };
+    let span = if let Some(token) = error.found() {
+        token.span
+    } else if !error_tokens.is_empty() {
+        span_from_token_slice(error_tokens)
+    } else {
+        Span::new(0, 0)
+    };
     let found = error
         .found()
         .map(|t| format!("{:?}", t.kind))

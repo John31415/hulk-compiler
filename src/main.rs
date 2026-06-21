@@ -53,7 +53,7 @@ fn main() -> ExitCode {
         Ok(ast) => ast,
         Err(errors) => {
             for error in errors {
-                let diagnostic = rich_to_diagnostic(error);
+                let diagnostic = rich_to_diagnostic(error, &tokens);
                 print_contract_diagnostic(&diagnostic, "SYNTACTIC", &source);
             }
             return ExitCode::from(EXIT_SYNTACTIC);
