@@ -21,6 +21,7 @@ pub struct TypeInfo {
     pub constructor_params: Vec<ConstructorParam>,
     pub attributes: HashMap<String, Symbol>,
     pub methods: HashMap<String, Symbol>,
+    pub is_generic_template: bool,
 }
 
 pub struct TypeTable {
@@ -61,9 +62,25 @@ impl TypeTable {
             constructor_params: Vec::new(),
             attributes: HashMap::new(),
             methods: HashMap::new(),
+            is_generic_template: false,
         });
         self.by_name.insert(name, id);
         Some(id)
+    }
+
+    pub fn insert_instantiation(&mut self, mangled_name: String, parent: Option<TypeId>) -> TypeId {
+        let id = TypeId(self.infos.len());
+        self.infos.push(TypeInfo {
+            name: mangled_name.clone(),
+            parent,
+            declared_constructor_params: None,
+            constructor_params: Vec::new(),
+            attributes: HashMap::new(),
+            methods: HashMap::new(),
+            is_generic_template: false,
+        });
+        self.by_name.insert(mangled_name, id);
+        id
     }
 
     pub fn is_subtype_of(&self, left: TypeId, right: TypeId) -> bool {
@@ -196,7 +213,13 @@ impl TypeTable {
         params: Vec<ConstructorParam>,
     ) {
         if let Some(type_info) = self.infos.get_mut(type_id.0) {
+            let is_generic = params.iter().any(|p| p.ty.is_none());
             type_info.constructor_params = params;
+            type_info.is_generic_template = is_generic;
         }
+    }
+
+    pub fn is_generic_template(&self, type_id: TypeId) -> bool {
+        self.infos[type_id.0].is_generic_template
     }
 }
