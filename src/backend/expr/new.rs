@@ -19,12 +19,15 @@ impl<'ctx> Backend<'ctx> {
         let TypedExprKind::New { name, args } = &expr.node else {
             return Err(BackendError::InvalidExpression);
         };
-        let llvm_ty = self.types.get_llvm_type(expr.ty);
+        let struct_type = self
+            .types
+            .get_layout(expr.ty)
+            .ok_or(BackendError::InvalidExpression)?
+            .struct_type;
         let ptr_val: PointerValue<'ctx> = self
             .builder
-            .build_malloc(llvm_ty, &format!("new_{}", name))
+            .build_malloc(struct_type, &format!("new_{}", name))
             .map_err(|_| BackendError::InvalidExpression)?;
-
         let constructor_name = FunctionRegistry::mangle_constructor(name);
         if let Some(constructor_func) = self.module.get_function(&constructor_name) {
             let mut compiled_args = Vec::with_capacity(args.len() + 1);
