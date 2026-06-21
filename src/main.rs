@@ -79,27 +79,45 @@ fn main() -> ExitCode {
         return ExitCode::from(EXIT_SEMANTIC);
     }
 
-    let ir_path = "output.ll";
-    if let Err(e) = backend::emit::emit_ir_to_file(&backend.module, ir_path) {
+    let pid = std::process::id();
+    let ir_path = format!("output_{}.ll", pid);
+
+    if let Err(e) = backend::emit::emit_ir_to_file(&backend.module, &ir_path) {
         eprintln!("(0,0) SEMANTIC: failed to emit LLVM IR: {}", e);
         return ExitCode::from(EXIT_SEMANTIC);
     }
 
-    if let Err(e) = compile_ir_to_executable(ir_path) {
+    if let Err(e) = compile_ir_to_executable(&ir_path) {
         eprintln!("(0,0) SEMANTIC: native compilation failed: {}", e);
+        let _ = std::fs::remove_file(&ir_path);
         return ExitCode::from(EXIT_SEMANTIC);
     }
+
+    let _ = std::fs::remove_file(&ir_path);
 
     ExitCode::SUCCESS
 }
 
 fn compile_ir_to_executable(ir_path: &str) -> Result<(), String> {
-    let llc = std::env::var("HULK_LLC").unwrap_or_else(|_| "llc".to_string());
+    let llc = std::env::var("HULK_LLC").unwrap_or_else(|_| {
+        if std::process::Command::new("llc-17")
+            .arg("--version")
+            .output()
+            .is_ok()
+        {
+            "llc-17".to_string()
+        } else {
+            "llc".to_string()
+        }
+    });
     let cc = std::env::var("HULK_CC").unwrap_or_else(|_| "cc".to_string());
-    let obj_path = "output.o";
+
+    let pid = std::process::id();
+    let obj_path = format!("output_{}.o", pid);
     let runtime_src = "runtime/runtime.c";
-    let runtime_obj = "runtime.o";
+    let runtime_obj = format!("runtime_{}.o", pid);
     let exe_path = "output";
+
     run_command(
         &llc,
         &[
@@ -107,9 +125,10 @@ fn compile_ir_to_executable(ir_path: &str) -> Result<(), String> {
             "-relocation-model=pic",
             ir_path,
             "-o",
-            obj_path,
+            &obj_path,
         ],
     )?;
+
     run_command(
         &cc,
         &[
@@ -119,13 +138,18 @@ fn compile_ir_to_executable(ir_path: &str) -> Result<(), String> {
             "-c",
             runtime_src,
             "-o",
-            runtime_obj,
+            &runtime_obj,
         ],
     )?;
+
     run_command(
         &cc,
-        &["-no-pie", "-o", exe_path, obj_path, runtime_obj, "-lm"],
+        &["-no-pie", "-o", exe_path, &obj_path, &runtime_obj, "-lm"],
     )?;
+
+    let _ = std::fs::remove_file(&obj_path);
+    let _ = std::fs::remove_file(&runtime_obj);
+
     Ok(())
 }
 
@@ -142,10 +166,12 @@ fn run_command(program: &str, args: &[&str]) -> Result<(), String> {
 }
 
 fn offset_to_line_col(source: &str, offset: usize) -> (usize, usize) {
-    let offset = offset.min(source.len());
     let mut line = 1usize;
     let mut col = 1usize;
-    for ch in source[..offset].chars() {
+    for (i, ch) in source.char_indices() {
+        if i >= offset {
+            break;
+        }
         if ch == '\n' {
             line += 1;
             col = 1;

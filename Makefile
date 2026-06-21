@@ -6,10 +6,8 @@ TARGET ?= hulk
 LLVM_CONFIG_PATH := $(shell command -v llvm-config-17 2>/dev/null || command -v llvm-config 2>/dev/null)
 
 ifneq ($(LLVM_CONFIG_PATH),)
-	# Si existe llvm-config (Local), le pedimos la ruta exacta
 	LLVM_PREFIX_DETECTED := $(shell $(LLVM_CONFIG_PATH) --prefix)
 else
-	# Si no existe (CI del profesor), forzamos la ruta estática de Ubuntu
 	LLVM_PREFIX_DETECTED := /usr/lib/llvm-17
 endif
 
