@@ -1,8 +1,8 @@
 use crate::ast::{Expr, ExprKind};
 use crate::lexer::span::Span;
-use crate::semantic::SemanticAnalyzer;
 use crate::semantic::error::{SemanticError, SemanticErrorKind};
 use crate::semantic::hir::{TypedExpr, TypedExprKind};
+use crate::semantic::SemanticAnalyzer;
 
 impl SemanticAnalyzer {
     pub fn analyze_property_access(&mut self, obj: &Expr, property: &str, span: Span) -> TypedExpr {
@@ -68,6 +68,13 @@ impl SemanticAnalyzer {
         span: Span,
     ) -> TypedExpr {
         let obj_expr = self.analyze_expr(obj);
+        if self
+            .ctx
+            .get_pending_generic_method(obj_expr.ty, method)
+            .is_some()
+        {
+            return self.analyze_generic_method_call(obj_expr, method, args, span);
+        }
         let mut typed_args = Vec::new();
         let type_id = if let Some((param_types, return_type)) =
             self.ctx.types.lookup_method(obj_expr.ty, method)
@@ -130,11 +137,65 @@ impl SemanticAnalyzer {
             span,
         )
     }
+
+    fn analyze_generic_method_call(
+        &mut self,
+        obj_expr: TypedExpr,
+        method: &str,
+        args: &[Expr],
+        span: Span,
+    ) -> TypedExpr {
+        let object_type = self.resolve_builtin("Object");
+        let obj_type_id = obj_expr.ty;
+        let mut typed_args = Vec::new();
+        let mut concrete_arg_types = Vec::new();
+        for arg in args {
+            let arg_type = self.analyze_expr(arg);
+            concrete_arg_types.push(arg_type.ty);
+            typed_args.push(arg_type);
+        }
+        let key = (obj_type_id, method.to_string(), concrete_arg_types.clone());
+        let (mangled_name, return_type) = if let Some(existing) = self.ctx.get_method_instance(&key)
+        {
+            let ret = existing.node_return_type();
+            (
+                self.ctx
+                    .mangle_method_instance_name(obj_type_id, method, &concrete_arg_types),
+                ret,
+            )
+        } else if self.ctx.is_method_in_progress(&key) {
+            self.diagnostics.push(
+                SemanticError::new(
+                    SemanticErrorKind::GenericInferenceFailed {
+                        function: method.to_string(),
+                    },
+                    span,
+                )
+                .into(),
+            );
+            (method.to_string(), object_type)
+        } else {
+            match self.instantiate_generic_method(obj_type_id, method, &concrete_arg_types, span) {
+                Some((name, ret)) => (name, ret),
+                None => (method.to_string(), object_type),
+            }
+        };
+        let mut call_args = vec![obj_expr];
+        call_args.extend(typed_args);
+        TypedExpr::new(
+            TypedExprKind::Call {
+                name: mangled_name,
+                args: call_args,
+            },
+            return_type,
+            span,
+        )
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::semantic::{SemanticAnalyzer, error::SemanticErrorKind, test_utils::parse_program};
+    use crate::semantic::{error::SemanticErrorKind, test_utils::parse_program, SemanticAnalyzer};
 
     #[test]
     fn semantic_unit_test_postfix_property_access() {
