@@ -71,6 +71,15 @@ pub fn install_builtins(ctx: &mut SemanticContext) {
         span: Span::new(0, 0),
     });
     ctx.declare(Symbol {
+        name: "print_number".to_string(),
+        kind: SymbolKind::Function,
+        ty: SymbolType::Function {
+            params: vec![number],
+            ret: number,
+        },
+        span: Span::new(0, 0),
+    });
+    ctx.declare(Symbol {
         name: "PI".to_string(),
         kind: SymbolKind::Variable,
         ty: SymbolType::Variable(number),

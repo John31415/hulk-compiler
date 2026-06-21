@@ -8,6 +8,9 @@ use crate::semantic::{analyzer::SemanticAnalyzer, types::TypeId};
 impl SemanticAnalyzer {
     pub fn analyze_call(&mut self, name: &str, args: &Vec<Expr>, span: Span) -> TypedExpr {
         let object_type = self.resolve_builtin("Object");
+        if name == "print" {
+            return self.analyze_print_call(args, span);
+        }
         let symbol_ty = self.ctx.lookup(name).map(|s| s.ty.clone());
         let resolved = match symbol_ty {
             Some(SymbolType::Function { params, ret }) => CallResolution::Concrete {
@@ -94,6 +97,59 @@ impl SemanticAnalyzer {
             }
             CallResolution::Generic => self.analyze_generic_call(name, args, span),
         }
+    }
+
+    fn analyze_print_call(&mut self, args: &[Expr], span: Span) -> TypedExpr {
+        let object_type = self.resolve_builtin("Object");
+        let string_type = self.resolve_builtin("String");
+        let number_type = self.resolve_builtin("Number");
+        if args.len() != 1 {
+            self.diagnostics.push(
+                SemanticError::new(
+                    SemanticErrorKind::InvalidFunctionArity {
+                        name: "print".to_string(),
+                        expected: 1,
+                        found: args.len(),
+                    },
+                    span,
+                )
+                .into(),
+            );
+            let typed_args: Vec<TypedExpr> = args.iter().map(|a| self.analyze_expr(a)).collect();
+            return TypedExpr::new(
+                TypedExprKind::Call {
+                    name: "print".into(),
+                    args: typed_args,
+                },
+                object_type,
+                span,
+            );
+        }
+        let arg_type = self.analyze_expr(&args[0]);
+        let is_supported = arg_type.ty == string_type || arg_type.ty == number_type;
+        if !is_supported {
+            self.diagnostics.push(
+                SemanticError::new(
+                    SemanticErrorKind::FunctionArgumentTypeMismatch {
+                        name: "print".to_string(),
+                        index: 1,
+                        expected: "String' or 'Number".to_string(),
+                        found: self.ctx.types.get(arg_type.ty).name.clone(),
+                    },
+                    args[0].span,
+                )
+                .into(),
+            );
+        }
+        let return_ty = arg_type.ty;
+        TypedExpr::new(
+            TypedExprKind::Call {
+                name: "print".into(),
+                args: vec![arg_type],
+            },
+            return_ty,
+            span,
+        )
     }
 
     fn analyze_concrete_call(
@@ -324,7 +380,7 @@ enum CallResolution {
 
 #[cfg(test)]
 mod tests {
-    use crate::semantic::{SemanticAnalyzer, error::SemanticErrorKind, test_utils::parse_program};
+    use crate::semantic::{error::SemanticErrorKind, test_utils::parse_program, SemanticAnalyzer};
 
     #[test]
     fn semantic_unit_test_call_function_err() {

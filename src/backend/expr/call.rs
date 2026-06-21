@@ -2,11 +2,13 @@ use super::{Backend, BackendError, BackendResult};
 use crate::{
     backend::functions::FunctionRegistry,
     semantic::{
-        SemanticAnalyzer,
         hir::{TypedExpr, TypedExprKind},
+        SemanticAnalyzer,
     },
 };
-use inkwell::{AddressSpace, values::BasicMetadataValueEnum, values::BasicValueEnum};
+use inkwell::{
+    types::BasicTypeEnum, values::BasicMetadataValueEnum, values::BasicValueEnum, AddressSpace,
+};
 
 impl<'ctx> Backend<'ctx> {
     pub fn compile_call(
@@ -18,7 +20,9 @@ impl<'ctx> Backend<'ctx> {
             if name == "base" {
                 return self.compile_base_call(args, sema);
             }
-
+            if name == "print" {
+                return self.compile_print_call(args, sema);
+            }
             let mangled_name = FunctionRegistry::mangle_global(name);
             let function = self
                 .module
@@ -39,6 +43,30 @@ impl<'ctx> Backend<'ctx> {
         Err(BackendError::InvalidExpression)
     }
 
+    fn compile_print_call(
+        &mut self,
+        args: &[TypedExpr],
+        sema: &SemanticAnalyzer,
+    ) -> BackendResult<BasicValueEnum<'ctx>> {
+        let arg_expr = args.first().ok_or(BackendError::InvalidExpression)?;
+        let arg_val = self.compile_expr(arg_expr, sema)?;
+        let fn_name = match arg_val.get_type() {
+            BasicTypeEnum::FloatType(_) => "print_number",
+            _ => "print",
+        };
+        let mangled_name = FunctionRegistry::mangle_global(fn_name);
+        let function = self
+            .module
+            .get_function(&mangled_name)
+            .ok_or(BackendError::InvalidExpression)?;
+        let compiled_args: Vec<BasicMetadataValueEnum<'ctx>> = vec![arg_val.into()];
+        let call_site = self
+            .builder
+            .build_call(function, &compiled_args, "call_print")
+            .map_err(|_| BackendError::InvalidExpression)?;
+        Ok(call_site.try_as_basic_value().unwrap_basic())
+    }
+
     fn compile_base_call(
         &mut self,
         args: &[TypedExpr],
@@ -49,13 +77,11 @@ impl<'ctx> Backend<'ctx> {
             .current_method
             .clone()
             .ok_or(BackendError::InvalidExpression)?;
-
         let layout = self
             .types
             .get_layout(current_type)
             .ok_or(BackendError::InvalidExpression)?;
         let parent_id = layout.parent.ok_or(BackendError::InvalidExpression)?;
-
         let mut search_id = parent_id;
         let function = loop {
             let l = self
@@ -67,7 +93,6 @@ impl<'ctx> Backend<'ctx> {
             }
             search_id = l.parent.ok_or(BackendError::InvalidExpression)?;
         };
-
         let self_ptr = self
             .lookup_local("self")
             .ok_or(BackendError::InvalidExpression)?;
@@ -76,7 +101,6 @@ impl<'ctx> Backend<'ctx> {
             .builder
             .build_load(ptr_ty, self_ptr, "load_self")
             .map_err(|_| BackendError::InvalidExpression)?;
-
         let mut compiled_args: Vec<BasicMetadataValueEnum<'ctx>> =
             Vec::with_capacity(args.len() + 1);
         compiled_args.push(self_val.into());
@@ -84,7 +108,6 @@ impl<'ctx> Backend<'ctx> {
             let arg_val = self.compile_expr(arg_expr, sema)?;
             compiled_args.push(arg_val.into());
         }
-
         let call_site = self
             .builder
             .build_call(function, &compiled_args, "call_base")

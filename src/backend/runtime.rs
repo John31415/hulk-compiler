@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
 use inkwell::{
-    AddressSpace,
     context::Context,
     module::Module,
     types::FunctionType,
     values::{BasicValueEnum, FunctionValue},
+    AddressSpace,
 };
 
 use crate::backend::functions::FunctionRegistry;
@@ -38,6 +38,7 @@ impl<'ctx> RuntimeRegistry<'ctx> {
         let unary_fn_type = number.fn_type(&[number.into()], false);
         let binary_fn_type = number.fn_type(&[number.into(), number.into()], false);
         let print_fn_type = string.fn_type(&[string.into()], false);
+        let print_number_fn_type = number.fn_type(&[number.into()], false);
         self.insert_function(&module, "sin", unary_fn_type);
         self.insert_function(&module, "cos", unary_fn_type);
         self.insert_function(&module, "exp", unary_fn_type);
@@ -45,6 +46,7 @@ impl<'ctx> RuntimeRegistry<'ctx> {
         self.insert_function(&module, "log", binary_fn_type);
         self.insert_function(&module, "rand", nullary_fn_type);
         self.insert_function(&module, "print", print_fn_type);
+        self.insert_function(&module, "print_number", print_number_fn_type);
     }
 
     fn register_constants(&mut self, ctx: &'ctx Context) {

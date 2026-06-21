@@ -76,6 +76,12 @@ char *hulk_fn_print(char *str)
     return str;
 }
 
+double hulk_fn_print_number(double value)
+{
+    printf("%g\n", value);
+    return value;
+}
+
 void hulk_unreachable_method(void)
 {
     fprintf(stderr, "hulk: fatal: llamada a metodo no implementado en este tipo (vtable slot vacio)\n");
