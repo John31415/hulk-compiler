@@ -1,4 +1,4 @@
-use crate::ast::Decl;
+use crate::ast::{Decl, TypeFeatures};
 use crate::semantic::hir::TypedDecl;
 use crate::semantic::symbols::SymbolType;
 
@@ -35,6 +35,10 @@ pub struct SemanticContext {
     pub generic_type_instance_decls: HashMap<GenericInstanceKey, TypedDecl>,
     pub type_instantiation_order: Vec<GenericInstanceKey>,
     pub in_progress_type_instances: HashSet<GenericInstanceKey>,
+    pub pending_generic_methods: HashMap<(TypeId, String), TypeFeatures>,
+    pub generic_method_instances: HashMap<(TypeId, String, Vec<TypeId>), TypedDecl>,
+    pub method_instantiation_order: Vec<(TypeId, String, Vec<TypeId>)>,
+    pub in_progress_method_instances: HashSet<(TypeId, String, Vec<TypeId>)>,
 }
 
 impl SemanticContext {
@@ -56,6 +60,10 @@ impl SemanticContext {
             generic_type_instance_decls: HashMap::new(),
             type_instantiation_order: Vec::new(),
             in_progress_type_instances: HashSet::new(),
+            pending_generic_methods: HashMap::new(),
+            generic_method_instances: HashMap::new(),
+            method_instantiation_order: Vec::new(),
+            in_progress_method_instances: HashSet::new(),
         }
     }
 
@@ -167,5 +175,66 @@ impl SemanticContext {
 
     pub fn is_type_in_progress(&self, key: &GenericInstanceKey) -> bool {
         self.in_progress_type_instances.contains(key)
+    }
+
+    pub fn register_pending_generic_method(
+        &mut self,
+        type_id: TypeId,
+        method_name: String,
+        feature: TypeFeatures,
+    ) {
+        self.pending_generic_methods
+            .insert((type_id, method_name), feature);
+    }
+
+    pub fn get_pending_generic_method(
+        &self,
+        type_id: TypeId,
+        method_name: &str,
+    ) -> Option<TypeFeatures> {
+        self.pending_generic_methods
+            .get(&(type_id, method_name.to_string()))
+            .cloned()
+    }
+
+    pub fn get_method_instance(&self, key: &(TypeId, String, Vec<TypeId>)) -> Option<&TypedDecl> {
+        self.generic_method_instances.get(key)
+    }
+
+    pub fn insert_method_instance(
+        &mut self,
+        key: (TypeId, String, Vec<TypeId>),
+        typed_decl: TypedDecl,
+    ) {
+        if !self.generic_method_instances.contains_key(&key) {
+            self.method_instantiation_order.push(key.clone());
+        }
+        self.generic_method_instances.insert(key, typed_decl);
+    }
+
+    pub fn mark_method_in_progress(&mut self, key: (TypeId, String, Vec<TypeId>)) {
+        self.in_progress_method_instances.insert(key);
+    }
+
+    pub fn unmark_method_in_progress(&mut self, key: &(TypeId, String, Vec<TypeId>)) {
+        self.in_progress_method_instances.remove(key);
+    }
+
+    pub fn is_method_in_progress(&self, key: &(TypeId, String, Vec<TypeId>)) -> bool {
+        self.in_progress_method_instances.contains(key)
+    }
+
+    pub fn mangle_method_instance_name(
+        &self,
+        type_id: TypeId,
+        method_name: &str,
+        concrete_arg_types: &[TypeId],
+    ) -> String {
+        let mut mangled = format!("{}_{}", self.types.get(type_id).name, method_name);
+        for ty in concrete_arg_types {
+            mangled.push('$');
+            mangled.push_str(&self.types.get(*ty).name);
+        }
+        mangled
     }
 }
