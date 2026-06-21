@@ -18,6 +18,9 @@ impl<'ctx> Backend<'ctx> {
         if let Some(decls) = &program.node.decls {
             self.declare_top_level(decls, sema)?;
         }
+        for type_instance_decl in &program.node.monomorphized_types {
+            self.declare_type(type_instance_decl, sema)?;
+        }
         for instance_decl in &program.node.monomorphized_functions {
             self.declare_function(instance_decl)?;
         }
@@ -32,6 +35,9 @@ impl<'ctx> Backend<'ctx> {
         self.declare_program(program, sema)?;
         if let Some(decls) = &program.node.decls {
             self.compile_top_level(decls, sema)?;
+        }
+        for type_instance_decl in &program.node.monomorphized_types {
+            self.compile_type(type_instance_decl, sema)?;
         }
         for instance_decl in &program.node.monomorphized_functions {
             self.compile_function(instance_decl, sema)?;
