@@ -2,6 +2,7 @@ pub mod collect;
 pub mod declarations;
 pub mod functions;
 pub mod inherit;
+pub mod methods_generic;
 pub mod register;
 pub mod resolve_constructor;
 pub mod types;
