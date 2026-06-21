@@ -3,8 +3,8 @@ pub mod functions;
 pub mod methods;
 
 use crate::semantic::{
-    SemanticAnalyzer,
     hir::{TypedDecl, TypedDeclKind, TypedProgram},
+    SemanticAnalyzer,
 };
 
 use super::{Backend, BackendError, BackendResult};
@@ -24,6 +24,9 @@ impl<'ctx> Backend<'ctx> {
         for instance_decl in &program.node.monomorphized_functions {
             self.declare_function(instance_decl)?;
         }
+        for method_instance_decl in &program.node.monomorphized_methods {
+            self.declare_function(method_instance_decl)?;
+        }
         Ok(())
     }
 
@@ -41,6 +44,9 @@ impl<'ctx> Backend<'ctx> {
         }
         for instance_decl in &program.node.monomorphized_functions {
             self.compile_function(instance_decl, sema)?;
+        }
+        for method_instance_decl in &program.node.monomorphized_methods {
+            self.compile_function(method_instance_decl, sema)?;
         }
         let i32_type = self.llvm_context.i32_type();
         let main_fn_type = i32_type.fn_type(&[], false);
