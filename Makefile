@@ -1,29 +1,30 @@
 SHELL := /bin/bash
-CARGO ?= cargo
 
-.PHONY: build clean
+CARGO ?= cargo
+TARGET ?= hulk
+
+LLVM_CONFIG_PATH := $(shell command -v llvm-config-17 2>/dev/null || command -v llvm-config 2>/dev/null)
+
+ifneq ($(LLVM_CONFIG_PATH),)
+	# Si existe llvm-config (Local), le pedimos la ruta exacta
+	LLVM_PREFIX_DETECTED := $(shell $(LLVM_CONFIG_PATH) --prefix)
+else
+	# Si no existe (CI del profesor), forzamos la ruta estática de Ubuntu
+	LLVM_PREFIX_DETECTED := /usr/lib/llvm-17
+endif
+
+LLVM_PREFIX ?= $(LLVM_PREFIX_DETECTED)
+
+.PHONY: build clean run
 
 build:
-	@echo "[hulk] Iniciando compilación de diagnóstico..."
-	@echo "--- RUST VERSION ---" > build_log.txt
-	@rustc --version >> build_log.txt 2>&1 || true
-	@echo "--- LLVM PACKAGES ---" >> build_log.txt
-	@dpkg -l | grep llvm >> build_log.txt 2>&1 || true
-	@echo "--- CARGO BUILD ERROR ---" >> build_log.txt
-	# Intentamos compilar, pero usamos || true para que el CI crea que fue un éxito
-	@$(CARGO) build --release >> build_log.txt 2>&1 || true
-	@if [ -f target/release/hulk ]; then \
-		cp target/release/hulk ./hulk; \
-	else \
-		echo "[hulk] Build fallido. Creando script señuelo para exfiltrar logs..."; \
-		echo '#!/bin/bash' > ./hulk; \
-		echo 'while IFS= read -r line; do' >> ./hulk; \
-		echo '  printf "(0,0) LEXICAL: %%s\n" "$$line" >&2' >> ./hulk; \
-		echo 'done < build_log.txt' >> ./hulk; \
-		echo 'exit 1' >> ./hulk; \
-		chmod +x ./hulk; \
-	fi
+	@echo "[hulk] Usando LLVM_PREFIX=$(LLVM_PREFIX)"
+	LLVM_SYS_170_PREFIX=$(LLVM_PREFIX) $(CARGO) build --release
+	cp target/release/$(TARGET) ./$(TARGET)
 
 clean:
 	$(CARGO) clean
-	rm -f ./hulk build_log.txt output
+	rm -f ./$(TARGET) *.o *.ll output
+
+run: build
+	./$(TARGET) $(FILE)

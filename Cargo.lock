@@ -185,6 +185,7 @@ dependencies = [
  "chumsky",
  "inkwell",
  "insta",
+ "llvm-sys",
  "logos",
  "serde",
 ]
