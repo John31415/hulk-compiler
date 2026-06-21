@@ -52,6 +52,16 @@ impl SemanticAnalyzer {
                     )
             })
             .collect();
+        let monomorphized_methods =
+            self.ctx
+                .method_instantiation_order
+                .iter()
+                .map(|key| {
+                    self.ctx.generic_method_instances.get(key).cloned().expect(
+                        "method_instantiation_order key must exist in generic_method_instances",
+                    )
+                })
+                .collect();
         if self.has_errors() {
             return Err(self.diagnostics.clone());
         }
@@ -61,6 +71,7 @@ impl SemanticAnalyzer {
                 body: typed_entry,
                 monomorphized_functions,
                 monomorphized_types,
+                monomorphized_methods,
             },
             span: program.span,
         };
