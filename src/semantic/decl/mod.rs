@@ -5,3 +5,4 @@ pub mod inherit;
 pub mod register;
 pub mod resolve_constructor;
 pub mod types;
+pub mod types_generic;
