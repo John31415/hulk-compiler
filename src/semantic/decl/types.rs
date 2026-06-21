@@ -390,7 +390,7 @@ impl SemanticAnalyzer {
         )
     }
 
-    fn validate_method_override(
+    pub fn validate_method_override(
         &mut self,
         method_name: &str,
         current_params: &[(String, Option<String>)],
