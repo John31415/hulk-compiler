@@ -27,6 +27,7 @@ pub fn product_parser<'src>(
     let mul_op = choice((
         select_ref! {Token { kind: TokenKind::Star, span, ..} => Spanned::new(BinaryOpKind::Mul, *span) },
         select_ref! {Token { kind: TokenKind::Slash, span, ..} => Spanned::new(BinaryOpKind::Div, *span) },
+        select_ref! {Token { kind: TokenKind::Percent, span, ..} => Spanned::new(BinaryOpKind::Mod, *span) },
     ));
     lower
         .clone()

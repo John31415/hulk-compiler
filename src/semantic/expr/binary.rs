@@ -22,6 +22,7 @@ impl SemanticAnalyzer {
             | BinaryOpKind::Sub
             | BinaryOpKind::Mul
             | BinaryOpKind::Div
+            | BinaryOpKind::Mod
             | BinaryOpKind::Pow => {
                 self.enforce_type(left_type.ty, number_type, left.span, op);
                 self.enforce_type(right_type.ty, number_type, right.span, op);

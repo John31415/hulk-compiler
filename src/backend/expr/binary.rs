@@ -5,8 +5,8 @@ use crate::semantic::types::TypeId;
 use crate::{
     ast::BinaryOpKind,
     semantic::{
-        hir::{TypedExpr, TypedExprKind},
         SemanticAnalyzer,
+        hir::{TypedExpr, TypedExprKind},
     },
 };
 
@@ -31,6 +31,7 @@ impl<'ctx> Backend<'ctx> {
                 | BinaryOpKind::Sub
                 | BinaryOpKind::Mul
                 | BinaryOpKind::Div
+                | BinaryOpKind::Mod
                 | BinaryOpKind::Pow
                 | BinaryOpKind::Less
                 | BinaryOpKind::Greater
@@ -65,6 +66,13 @@ impl<'ctx> Backend<'ctx> {
                                 let res = self
                                     .builder
                                     .build_float_div(lhs_f, rhs_f, "div_tmp")
+                                    .map_err(|_| BackendError::InvalidExpression)?;
+                                return Ok(BasicValueEnum::FloatValue(res));
+                            }
+                            BinaryOpKind::Mod => {
+                                let res = self
+                                    .builder
+                                    .build_float_rem(lhs_f, rhs_f, "mod_tmp")
                                     .map_err(|_| BackendError::InvalidExpression)?;
                                 return Ok(BasicValueEnum::FloatValue(res));
                             }
