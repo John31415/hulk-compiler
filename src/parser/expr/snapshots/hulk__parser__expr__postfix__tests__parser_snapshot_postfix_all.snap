@@ -1,0 +1,51 @@
+---
+source: src/parser/expr/postfix.rs
+expression: ast
+---
+node:
+  MethodCall:
+    obj:
+      node:
+        PropertyAccess:
+          obj:
+            node:
+              Call:
+                name: tan
+                args:
+                  - node:
+                      Variable: p
+                    span:
+                      start: 13
+                      end: 14
+            span:
+              start: 9
+              end: 15
+          property: origin
+      span:
+        start: 9
+        end: 22
+    method: translate
+    args:
+      - node:
+          Literal:
+            node:
+              Number: 1
+            span:
+              start: 33
+              end: 34
+        span:
+          start: 33
+          end: 34
+      - node:
+          Literal:
+            node:
+              Number: 2
+            span:
+              start: 36
+              end: 37
+        span:
+          start: 36
+          end: 37
+span:
+  start: 9
+  end: 38

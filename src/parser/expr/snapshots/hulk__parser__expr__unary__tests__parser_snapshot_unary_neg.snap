@@ -1,0 +1,25 @@
+---
+source: src/parser/expr/unary.rs
+expression: ast
+---
+node:
+  Unary:
+    op:
+      node: Neg
+      span:
+        start: 9
+        end: 10
+    expr:
+      node:
+        Literal:
+          node:
+            Number: 42
+          span:
+            start: 10
+            end: 12
+      span:
+        start: 10
+        end: 12
+span:
+  start: 9
+  end: 12

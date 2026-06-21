@@ -1,0 +1,17 @@
+---
+source: src/parser/expr/postfix.rs
+expression: ast
+---
+node:
+  MethodCall:
+    obj:
+      node:
+        Variable: vector
+      span:
+        start: 9
+        end: 15
+    method: magnitude
+    args: []
+span:
+  start: 9
+  end: 27

@@ -1,0 +1,102 @@
+---
+source: src/parser/expr/binary.rs
+expression: ast
+---
+node:
+  Binary:
+    left_expr:
+      node:
+        Binary:
+          left_expr:
+            node:
+              Binary:
+                left_expr:
+                  node:
+                    Binary:
+                      left_expr:
+                        node:
+                          Literal:
+                            node:
+                              Number: 1
+                            span:
+                              start: 9
+                              end: 10
+                        span:
+                          start: 9
+                          end: 10
+                      op:
+                        node: Add
+                        span:
+                          start: 10
+                          end: 11
+                      right_expr:
+                        node:
+                          Literal:
+                            node:
+                              Number: 2
+                            span:
+                              start: 11
+                              end: 12
+                        span:
+                          start: 11
+                          end: 12
+                  span:
+                    start: 9
+                    end: 12
+                op:
+                  node: Sub
+                  span:
+                    start: 12
+                    end: 13
+                right_expr:
+                  node:
+                    Literal:
+                      node:
+                        Number: 3
+                      span:
+                        start: 13
+                        end: 14
+                  span:
+                    start: 13
+                    end: 14
+            span:
+              start: 9
+              end: 14
+          op:
+            node: Concat
+            span:
+              start: 15
+              end: 16
+          right_expr:
+            node:
+              Literal:
+                node:
+                  String: hello
+                span:
+                  start: 17
+                  end: 24
+            span:
+              start: 17
+              end: 24
+      span:
+        start: 9
+        end: 24
+    op:
+      node: ConcatSpace
+      span:
+        start: 25
+        end: 27
+    right_expr:
+      node:
+        Literal:
+          node:
+            String: " world"
+          span:
+            start: 28
+            end: 36
+      span:
+        start: 28
+        end: 36
+span:
+  start: 9
+  end: 36

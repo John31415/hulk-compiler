@@ -1,0 +1,26 @@
+---
+source: src/parser/expr/assign.rs
+expression: ast
+---
+node:
+  Assign:
+    target:
+      node:
+        Variable: a
+      span:
+        start: 9
+        end: 10
+    value:
+      node:
+        Literal:
+          node:
+            Number: 1
+          span:
+            start: 14
+            end: 15
+      span:
+        start: 14
+        end: 15
+span:
+  start: 9
+  end: 15

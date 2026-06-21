@@ -1,0 +1,28 @@
+---
+source: src/parser/decl/function_decl.rs
+expression: ast
+---
+node:
+  Function:
+    name: p1
+    params: []
+    return_type: ~
+    body:
+      node:
+        Block:
+          - node:
+              Literal:
+                node:
+                  Number: 1
+                span:
+                  start: 37
+                  end: 38
+            span:
+              start: 37
+              end: 38
+      span:
+        start: 23
+        end: 49
+span:
+  start: 9
+  end: 49

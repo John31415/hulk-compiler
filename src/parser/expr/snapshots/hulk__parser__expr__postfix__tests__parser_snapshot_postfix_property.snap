@@ -1,0 +1,16 @@
+---
+source: src/parser/expr/postfix.rs
+expression: ast
+---
+node:
+  PropertyAccess:
+    obj:
+      node:
+        Variable: point
+      span:
+        start: 9
+        end: 14
+    property: x
+span:
+  start: 9
+  end: 16

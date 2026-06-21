@@ -1,0 +1,25 @@
+---
+source: src/parser/expr/unary.rs
+expression: ast
+---
+node:
+  Unary:
+    op:
+      node: Not
+      span:
+        start: 9
+        end: 10
+    expr:
+      node:
+        Literal:
+          node:
+            Bool: false
+          span:
+            start: 10
+            end: 15
+      span:
+        start: 10
+        end: 15
+span:
+  start: 9
+  end: 15

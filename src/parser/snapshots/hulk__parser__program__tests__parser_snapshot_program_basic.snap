@@ -1,0 +1,20 @@
+---
+source: src/parser/program.rs
+expression: ast
+---
+node:
+  decls: []
+  body:
+    node:
+      Literal:
+        node:
+          Number: 42
+        span:
+          start: 9
+          end: 11
+    span:
+      start: 9
+      end: 11
+span:
+  start: 9
+  end: 21

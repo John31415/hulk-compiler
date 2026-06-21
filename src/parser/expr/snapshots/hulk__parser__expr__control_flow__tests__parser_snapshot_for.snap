@@ -1,0 +1,27 @@
+---
+source: src/parser/expr/control_flow.rs
+expression: ast
+---
+node:
+  For:
+    var: i
+    iterable:
+      node:
+        Variable: L
+      span:
+        start: 19
+        end: 20
+    body:
+      node:
+        Literal:
+          node:
+            Number: 1
+          span:
+            start: 22
+            end: 23
+      span:
+        start: 22
+        end: 23
+span:
+  start: 19
+  end: 23

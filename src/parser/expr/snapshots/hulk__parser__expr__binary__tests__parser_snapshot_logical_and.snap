@@ -1,0 +1,36 @@
+---
+source: src/parser/expr/binary.rs
+expression: ast
+---
+node:
+  Binary:
+    left_expr:
+      node:
+        Literal:
+          node:
+            Number: 1
+          span:
+            start: 9
+            end: 10
+      span:
+        start: 9
+        end: 10
+    op:
+      node: And
+      span:
+        start: 11
+        end: 12
+    right_expr:
+      node:
+        Literal:
+          node:
+            Number: 2
+          span:
+            start: 13
+            end: 14
+      span:
+        start: 13
+        end: 14
+span:
+  start: 9
+  end: 14

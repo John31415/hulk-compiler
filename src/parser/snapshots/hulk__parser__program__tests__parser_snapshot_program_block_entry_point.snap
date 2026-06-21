@@ -1,0 +1,76 @@
+---
+source: src/parser/program.rs
+expression: ast
+---
+node:
+  decls:
+    - node:
+        Type:
+          name: Point
+          params: ~
+          parent: ~
+          features:
+            - node:
+                Attribute:
+                  name: x
+                  type_name: ~
+                  default:
+                    node:
+                      Literal:
+                        node:
+                          Number: 0
+                        span:
+                          start: 26
+                          end: 27
+                    span:
+                      start: 26
+                      end: 27
+              span:
+                start: 22
+                end: 28
+      span:
+        start: 9
+        end: 30
+    - node:
+        Function:
+          name: f
+          params: []
+          return_type: ~
+          body:
+            node:
+              Block:
+                - node:
+                    Literal:
+                      node:
+                        Number: 1
+                      span:
+                        start: 55
+                        end: 56
+                  span:
+                    start: 55
+                    end: 56
+            span:
+              start: 53
+              end: 59
+      span:
+        start: 40
+        end: 59
+  body:
+    node:
+      Block:
+        - node:
+            Literal:
+              node:
+                Number: 42
+              span:
+                start: 83
+                end: 85
+          span:
+            start: 83
+            end: 85
+    span:
+      start: 69
+      end: 96
+span:
+  start: 9
+  end: 105

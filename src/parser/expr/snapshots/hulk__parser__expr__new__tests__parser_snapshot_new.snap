@@ -1,0 +1,31 @@
+---
+source: src/parser/expr/new.rs
+expression: ast
+---
+node:
+  New:
+    type_name: Point
+    args:
+      - node:
+          Literal:
+            node:
+              Number: 1
+            span:
+              start: 19
+              end: 20
+        span:
+          start: 19
+          end: 20
+      - node:
+          Literal:
+            node:
+              Number: 3
+            span:
+              start: 22
+              end: 23
+        span:
+          start: 22
+          end: 23
+span:
+  start: 9
+  end: 24

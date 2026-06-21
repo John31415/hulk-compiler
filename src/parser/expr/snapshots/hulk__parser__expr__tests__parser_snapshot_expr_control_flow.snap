@@ -1,0 +1,173 @@
+---
+source: src/parser/expr/mod.rs
+expression: ast
+---
+node:
+  For:
+    var: x
+    iterable:
+      node:
+        Call:
+          name: range
+          args:
+            - node:
+                Literal:
+                  node:
+                    Number: 1
+                  span:
+                    start: 25
+                    end: 26
+              span:
+                start: 25
+                end: 26
+            - node:
+                Literal:
+                  node:
+                    Number: 5
+                  span:
+                    start: 28
+                    end: 29
+              span:
+                start: 28
+                end: 29
+      span:
+        start: 19
+        end: 30
+    body:
+      node:
+        Block:
+          - node:
+              If:
+                condition:
+                  node:
+                    Literal:
+                      node:
+                        Bool: true
+                      span:
+                        start: 50
+                        end: 54
+                  span:
+                    start: 50
+                    end: 54
+                then_branch:
+                  node:
+                    Block:
+                      - node:
+                          While:
+                            condition:
+                              node:
+                                Literal:
+                                  node:
+                                    Bool: true
+                                  span:
+                                    start: 81
+                                    end: 85
+                              span:
+                                start: 81
+                                end: 85
+                            body:
+                              node:
+                                Block:
+                                  - node:
+                                      Assign:
+                                        target:
+                                          node:
+                                            Variable: x
+                                          span:
+                                            start: 109
+                                            end: 110
+                                        value:
+                                          node:
+                                            Binary:
+                                              left_expr:
+                                                node:
+                                                  Variable: x
+                                                span:
+                                                  start: 114
+                                                  end: 115
+                                              op:
+                                                node: Add
+                                                span:
+                                                  start: 116
+                                                  end: 117
+                                              right_expr:
+                                                node:
+                                                  Literal:
+                                                    node:
+                                                      Number: 1
+                                                    span:
+                                                      start: 118
+                                                      end: 119
+                                                span:
+                                                  start: 118
+                                                  end: 119
+                                          span:
+                                            start: 114
+                                            end: 119
+                                    span:
+                                      start: 109
+                                      end: 119
+                              span:
+                                start: 87
+                                end: 138
+                        span:
+                          start: 81
+                          end: 138
+                  span:
+                    start: 56
+                    end: 153
+                else_branch:
+                  node:
+                    If:
+                      condition:
+                        node:
+                          Literal:
+                            node:
+                              Bool: false
+                            span:
+                              start: 173
+                              end: 178
+                        span:
+                          start: 173
+                          end: 178
+                      then_branch:
+                        node:
+                          Literal:
+                            node:
+                              Number: 2
+                            span:
+                              start: 180
+                              end: 181
+                        span:
+                          start: 180
+                          end: 181
+                      else_branch:
+                        node:
+                          Block:
+                            - node:
+                                Call:
+                                  name: print
+                                  args:
+                                    - node:
+                                        Variable: x
+                                      span:
+                                        start: 223
+                                        end: 224
+                              span:
+                                start: 217
+                                end: 225
+                        span:
+                          start: 199
+                          end: 240
+                  span:
+                    start: 173
+                    end: 240
+            span:
+              start: 50
+              end: 240
+      span:
+        start: 32
+        end: 251
+span:
+  start: 19
+  end: 251

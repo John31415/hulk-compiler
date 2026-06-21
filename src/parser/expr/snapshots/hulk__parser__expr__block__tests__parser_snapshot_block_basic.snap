@@ -1,0 +1,24 @@
+---
+source: src/parser/expr/block.rs
+expression: ast
+---
+node:
+  Block:
+    - node:
+        Variable: a
+      span:
+        start: 10
+        end: 11
+    - node:
+        Variable: b
+      span:
+        start: 13
+        end: 14
+    - node:
+        Variable: c
+      span:
+        start: 16
+        end: 17
+span:
+  start: 9
+  end: 19

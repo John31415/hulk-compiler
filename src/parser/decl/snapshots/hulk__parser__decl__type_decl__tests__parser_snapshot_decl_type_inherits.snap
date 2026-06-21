@@ -1,0 +1,62 @@
+---
+source: src/parser/decl/type_decl.rs
+expression: ast
+---
+node:
+  Type:
+    name: Knight
+    params: ~
+    parent:
+      node:
+        parent_name: Person
+        args: ~
+      span:
+        start: 21
+        end: 36
+    features:
+      - node:
+          Method:
+            name: name
+            params: []
+            return_type: ~
+            body:
+              node:
+                Block:
+                  - node:
+                      Binary:
+                        left_expr:
+                          node:
+                            Literal:
+                              node:
+                                String: Sir
+                              span:
+                                start: 76
+                                end: 81
+                          span:
+                            start: 76
+                            end: 81
+                        op:
+                          node: ConcatSpace
+                          span:
+                            start: 82
+                            end: 84
+                        right_expr:
+                          node:
+                            Call:
+                              name: base
+                              args: []
+                          span:
+                            start: 85
+                            end: 91
+                    span:
+                      start: 76
+                      end: 91
+              span:
+                start: 58
+                end: 106
+        span:
+          start: 51
+          end: 106
+span:
+  start: 9
+  end: 116
