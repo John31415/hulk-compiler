@@ -261,3 +261,105 @@ let y = f in 42;
         }
     );
 }
+
+#[test]
+fn semantic_generic_type_basic_instantiation() {
+    let source = r#"
+type Point(x, y) {
+    x = x;
+    y = y;
+}
+
+{
+    new Point(1, 2);
+    new Point("a", "b");
+}
+        "#;
+    let program = parse_program(source);
+    let mut analyzer = SemanticAnalyzer::new();
+    let result = analyzer.analyze_program(program);
+    assert!(
+        analyzer.diagnostics.is_empty(),
+        "{:?}",
+        analyzer.diagnostics
+    );
+    let hir = result.unwrap();
+    assert_eq!(hir.node.monomorphized_types.len(), 2);
+}
+
+#[test]
+fn semantic_generic_type_mixed_params() {
+    let source = r#"
+type Punto(x: Number, y) {
+    x = x;
+    y = y;
+}
+
+{
+    new Punto(1, "a");
+    new Punto(1, 2);
+}
+        "#;
+    let program = parse_program(source);
+    let mut analyzer = SemanticAnalyzer::new();
+    let result = analyzer.analyze_program(program);
+    assert!(
+        analyzer.diagnostics.is_empty(),
+        "{:?}",
+        analyzer.diagnostics
+    );
+    assert_eq!(result.unwrap().node.monomorphized_types.len(), 2);
+}
+
+#[test]
+fn semantic_generic_type_reuses_same_instance() {
+    let source = r#"
+type Point(x, y) { x = x; y = y; }
+
+{
+    new Point(1, 2);
+    new Point(3, 4);
+}
+        "#;
+    let program = parse_program(source);
+    let mut analyzer = SemanticAnalyzer::new();
+    let result = analyzer.analyze_program(program);
+    assert!(analyzer.diagnostics.is_empty());
+    assert_eq!(result.unwrap().node.monomorphized_types.len(), 1);
+}
+
+#[test]
+fn semantic_generic_type_inheriting_from_generic_type() {
+    let source = r#"
+type Point(x, y) { x = x; y = y; }
+
+type PolarPoint(phi, rho) inherits Point(rho * sin(phi), rho * cos(phi)) {}
+
+{
+    new PolarPoint(1, 2);
+}
+        "#;
+    let program = parse_program(source);
+    let mut analyzer = SemanticAnalyzer::new();
+    let result = analyzer.analyze_program(program);
+    assert!(
+        analyzer.diagnostics.is_empty(),
+        "{:?}",
+        analyzer.diagnostics
+    );
+    assert_eq!(result.unwrap().node.monomorphized_types.len(), 2);
+}
+
+#[test]
+fn semantic_unused_generic_type_produces_no_instantiation() {
+    let source = r#"
+type Point(x, y) { x = x; y = y; }
+
+42;
+        "#;
+    let program = parse_program(source);
+    let mut analyzer = SemanticAnalyzer::new();
+    let result = analyzer.analyze_program(program);
+    assert!(analyzer.diagnostics.is_empty());
+    assert!(result.unwrap().node.monomorphized_types.is_empty());
+}
