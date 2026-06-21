@@ -5,8 +5,8 @@ use crate::semantic::types::TypeId;
 use crate::{
     ast::BinaryOpKind,
     semantic::{
-        SemanticAnalyzer,
         hir::{TypedExpr, TypedExprKind},
+        SemanticAnalyzer,
     },
 };
 
@@ -162,6 +162,47 @@ impl<'ctx> Backend<'ctx> {
                             BasicValueEnum::PointerValue(lhs_p),
                             BasicValueEnum::PointerValue(rhs_p),
                         ) => {
+                            let is_string = left_expr.ty == TypeId(2);
+                            if is_string {
+                                let i32_type = self.llvm_context.i32_type();
+                                let ptr_type = lhs_p.get_type();
+                                let fn_type =
+                                    i32_type.fn_type(&[ptr_type.into(), ptr_type.into()], false);
+                                let fn_name = "hulk_string_equals";
+                                let equals_fn =
+                                    self.module.get_function(fn_name).unwrap_or_else(|| {
+                                        self.module.add_function(fn_name, fn_type, None)
+                                    });
+                                let call_site = self
+                                    .builder
+                                    .build_call(
+                                        equals_fn,
+                                        &[lhs_p.into(), rhs_p.into()],
+                                        "str_eq_tmp",
+                                    )
+                                    .map_err(|_| BackendError::InvalidExpression)?;
+                                let call_res_i32 = call_site
+                                    .try_as_basic_value()
+                                    .unwrap_basic()
+                                    .into_int_value();
+                                let zero = i32_type.const_int(0, false);
+                                let mut is_eq_res = self
+                                    .builder
+                                    .build_int_compare(
+                                        inkwell::IntPredicate::NE,
+                                        call_res_i32,
+                                        zero,
+                                        "str_cmp_i1",
+                                    )
+                                    .map_err(|_| BackendError::InvalidExpression)?;
+                                if !is_equal {
+                                    is_eq_res = self
+                                        .builder
+                                        .build_not(is_eq_res, "str_not_tmp")
+                                        .map_err(|_| BackendError::InvalidExpression)?;
+                                }
+                                return Ok(BasicValueEnum::IntValue(is_eq_res));
+                            }
                             let pred = if is_equal {
                                 inkwell::IntPredicate::EQ
                             } else {
@@ -171,6 +212,7 @@ impl<'ctx> Backend<'ctx> {
                                 .builder
                                 .build_int_compare(pred, lhs_p, rhs_p, "ref_cmp_tmp")
                                 .map_err(|_| BackendError::InvalidExpression)?;
+
                             return Ok(BasicValueEnum::IntValue(res));
                         }
                         _ => return Err(BackendError::InvalidExpression),
