@@ -212,6 +212,10 @@ pub enum SemanticErrorKind {
     GenericInferenceFailed {
         function: String,
     },
+    GenericMethodOverrideNotAllowed {
+        method: String,
+        type_name: String,
+    },
 }
 
 impl SemanticErrorKind {
@@ -561,6 +565,12 @@ impl SemanticErrorKind {
                 format!(
                     "cannot infer the parameter/return types of '{}': the inference depends circularly on itself and the body does not provide enough information to break the cycle. Please annotate the parameter and/or return types explicitly (e.g. 'function {}(n: Number): Number')",
                     function, function
+                )
+            }
+            Self::GenericMethodOverrideNotAllowed { method, type_name } => {
+                format!(
+                    "method '{}' in type '{}' has unannotated parameters and cannot override a method with a fixed signature in an ancestor type: generic methods cannot participate in virtual dispatch",
+                    method, type_name
                 )
             }
         }
