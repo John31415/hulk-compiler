@@ -30,6 +30,11 @@ pub struct SemanticContext {
     pub generic_instances: HashMap<GenericInstanceKey, TypedDecl>,
     pub instantiation_order: Vec<GenericInstanceKey>,
     pub in_progress_instances: HashSet<GenericInstanceKey>,
+    pub generic_type_decls: HashMap<String, Decl>,
+    pub generic_type_instances: HashMap<GenericInstanceKey, TypeId>,
+    pub generic_type_instance_decls: HashMap<GenericInstanceKey, TypedDecl>,
+    pub type_instantiation_order: Vec<GenericInstanceKey>,
+    pub in_progress_type_instances: HashSet<GenericInstanceKey>,
 }
 
 impl SemanticContext {
@@ -46,6 +51,11 @@ impl SemanticContext {
             generic_instances: HashMap::new(),
             instantiation_order: Vec::new(),
             in_progress_instances: HashSet::new(),
+            generic_type_decls: HashMap::new(),
+            generic_type_instances: HashMap::new(),
+            generic_type_instance_decls: HashMap::new(),
+            type_instantiation_order: Vec::new(),
+            in_progress_type_instances: HashSet::new(),
         }
     }
 
@@ -86,27 +96,34 @@ impl SemanticContext {
         }
         false
     }
+
     pub fn register_generic_decl(&mut self, name: String, decl: Decl) {
         self.generic_decls.insert(name, decl);
     }
+
     pub fn get_instance(&self, key: &GenericInstanceKey) -> Option<&TypedDecl> {
         self.generic_instances.get(key)
     }
+
     pub fn insert_instance(&mut self, key: GenericInstanceKey, typed_decl: TypedDecl) {
         if !self.generic_instances.contains_key(&key) {
             self.instantiation_order.push(key.clone());
         }
         self.generic_instances.insert(key, typed_decl);
     }
+
     pub fn mark_in_progress(&mut self, key: GenericInstanceKey) {
         self.in_progress_instances.insert(key);
     }
+
     pub fn unmark_in_progress(&mut self, key: &GenericInstanceKey) {
         self.in_progress_instances.remove(key);
     }
+
     pub fn is_in_progress(&self, key: &GenericInstanceKey) -> bool {
         self.in_progress_instances.contains(key)
     }
+
     pub fn mangle_instance_name(&self, base_name: &str, concrete_types: &[TypeId]) -> String {
         if concrete_types.is_empty() {
             return base_name.to_string();
@@ -117,5 +134,38 @@ impl SemanticContext {
             mangled.push_str(&self.types.get(*ty).name);
         }
         mangled
+    }
+
+    pub fn register_generic_type_decl(&mut self, name: String, decl: Decl) {
+        self.generic_type_decls.insert(name, decl);
+    }
+
+    pub fn get_type_instance(&self, key: &GenericInstanceKey) -> Option<TypeId> {
+        self.generic_type_instances.get(key).copied()
+    }
+
+    pub fn insert_type_instance(
+        &mut self,
+        key: GenericInstanceKey,
+        type_id: TypeId,
+        typed_decl: TypedDecl,
+    ) {
+        if !self.generic_type_instances.contains_key(&key) {
+            self.type_instantiation_order.push(key.clone());
+        }
+        self.generic_type_instances.insert(key.clone(), type_id);
+        self.generic_type_instance_decls.insert(key, typed_decl);
+    }
+
+    pub fn mark_type_in_progress(&mut self, key: GenericInstanceKey) {
+        self.in_progress_type_instances.insert(key);
+    }
+
+    pub fn unmark_type_in_progress(&mut self, key: &GenericInstanceKey) {
+        self.in_progress_type_instances.remove(key);
+    }
+
+    pub fn is_type_in_progress(&self, key: &GenericInstanceKey) -> bool {
+        self.in_progress_type_instances.contains(key)
     }
 }
