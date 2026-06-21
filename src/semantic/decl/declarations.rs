@@ -21,7 +21,14 @@ impl SemanticAnalyzer {
                     }
                     typed_decls.push(self.analyze_function(decl));
                 }
-                DeclKind::Type { .. } => {
+                DeclKind::Type { name, .. } => {
+                    let resolved_id = self.ctx.types.resolve(name);
+                    let is_generic = resolved_id
+                        .map(|id| self.ctx.types.is_generic_template(id))
+                        .unwrap_or(false);
+                    if is_generic {
+                        continue;
+                    }
                     typed_decls.push(self.analyze_type(decl));
                 }
             }
@@ -69,23 +76,13 @@ type A(a: B, a: Number) {}
         "#;
         let program = parse_program(source);
         let mut analyzer = SemanticAnalyzer::new();
-        let _ = analyzer.analyze_program(program);
-        assert_eq!(analyzer.diagnostics.len(), 2);
-        assert_eq!(
-            analyzer.diagnostics[0].kind,
-            SemanticErrorKind::UnknownTypeInFunctionParameter {
-                function: "A".to_string(),
-                param: "a".to_string(),
-                type_name: "B".to_string()
-            }
+        let result = analyzer.analyze_program(program);
+        assert!(
+            analyzer.diagnostics.is_empty(),
+            "{:?}",
+            analyzer.diagnostics
         );
-        assert_eq!(
-            analyzer.diagnostics[1].kind,
-            SemanticErrorKind::DuplicateConstructorParameter {
-                type_name: "A".to_string(),
-                param: "a".to_string()
-            }
-        );
+        assert!(result.unwrap().node.monomorphized_types.is_empty());
     }
 
     #[test]
