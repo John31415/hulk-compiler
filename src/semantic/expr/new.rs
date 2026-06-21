@@ -18,9 +18,22 @@ impl SemanticAnalyzer {
                     )
                     .into(),
                 );
-                self.resolve_builtin("Object")
+                let object_type = self.resolve_builtin("Object");
+                return TypedExpr::new(
+                    TypedExprKind::New {
+                        name: type_name.into(),
+                        args: args.iter().map(|a| self.analyze_expr(a)).collect(),
+                    },
+                    object_type,
+                    span,
+                );
             }
         };
+
+        if self.ctx.types.is_generic_template(instance_type_id) {
+            return self.analyze_generic_new(type_name, args, span);
+        }
+
         let expected_params = self.ctx.types.infos[instance_type_id.0]
             .constructor_params
             .clone();
@@ -65,6 +78,66 @@ impl SemanticAnalyzer {
         TypedExpr::new(
             TypedExprKind::New {
                 name: type_name.into(),
+                args: typed_args,
+            },
+            instance_type_id,
+            span,
+        )
+    }
+
+    fn analyze_generic_new(&mut self, type_name: &str, args: &[Expr], span: Span) -> TypedExpr {
+        let object_type = self.resolve_builtin("Object");
+        let molde_type_id = self
+            .ctx
+            .types
+            .resolve(type_name)
+            .expect("caller already confirmed this type resolves");
+        let declared_arity = self.ctx.types.get_constructor_params(molde_type_id).len();
+        if args.len() != declared_arity {
+            self.diagnostics.push(
+                SemanticError::new(
+                    SemanticErrorKind::InvalidConstructorArity {
+                        type_name: type_name.to_string(),
+                        expected: declared_arity,
+                        found: args.len(),
+                    },
+                    span,
+                )
+                .into(),
+            );
+        }
+        let mut typed_args = Vec::new();
+        let mut instance_key_types = Vec::new();
+        for arg in args {
+            let arg_type = self.analyze_expr(arg);
+            instance_key_types.push(arg_type.ty);
+            typed_args.push(arg_type);
+        }
+        let key = (type_name.to_string(), instance_key_types.clone());
+        let instance_type_id = if let Some(existing) = self.ctx.get_type_instance(&key) {
+            existing
+        } else if self.ctx.is_type_in_progress(&key) {
+            self.diagnostics.push(
+                SemanticError::new(
+                    SemanticErrorKind::UnknownType {
+                        name: type_name.to_string(),
+                    },
+                    span,
+                )
+                .into(),
+            );
+            object_type
+        } else {
+            match self.instantiate_generic_type(type_name, &instance_key_types, span) {
+                Some(id) => id,
+                None => object_type,
+            }
+        };
+        TypedExpr::new(
+            TypedExprKind::New {
+                name: self
+                    .ctx
+                    .mangle_instance_name(type_name, &instance_key_types),
                 args: typed_args,
             },
             instance_type_id,
