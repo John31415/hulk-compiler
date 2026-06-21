@@ -64,6 +64,8 @@ impl SemanticAnalyzer {
                     parent,
                     features,
                 } => {
+                    self.ctx
+                        .register_generic_type_decl(name.clone(), decl.clone());
                     let current_type_id =
                         self.ctx.types.resolve(name).expect(
                             "Type should have already been registered in collect_declarations",
