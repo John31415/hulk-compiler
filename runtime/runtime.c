@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <time.h>
 #include <math.h>
+#include <string.h>
 
 void *malloc(size_t size);
 void free(void *);
@@ -79,4 +80,19 @@ void hulk_unreachable_method(void)
 {
     fprintf(stderr, "hulk: fatal: llamada a metodo no implementado en este tipo (vtable slot vacio)\n");
     exit(1);
+}
+
+int hulk_string_equals(void *ptr1, void *ptr2)
+{
+    if (ptr1 == ptr2)
+        return 1;
+    if (!ptr1 || !ptr2)
+        return 0;
+    char *str1 = (char *)ptr1;
+    char *str2 = (char *)ptr2;
+    if (strcmp(str1, str2) == 0)
+    {
+        return 1;
+    }
+    return 0;
 }
