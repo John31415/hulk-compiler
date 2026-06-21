@@ -38,6 +38,20 @@ impl SemanticAnalyzer {
                     .expect("instantiation_order key must exist in generic_instances")
             })
             .collect();
+        let monomorphized_types = self
+            .ctx
+            .type_instantiation_order
+            .iter()
+            .map(|key| {
+                self.ctx
+                    .generic_type_instance_decls
+                    .get(key)
+                    .cloned()
+                    .expect(
+                        "type_instantiation_order key must exist in generic_type_instance_decls",
+                    )
+            })
+            .collect();
         if self.has_errors() {
             return Err(self.diagnostics.clone());
         }
@@ -46,6 +60,7 @@ impl SemanticAnalyzer {
                 decls: typed_decls,
                 body: typed_entry,
                 monomorphized_functions,
+                monomorphized_types,
             },
             span: program.span,
         };
