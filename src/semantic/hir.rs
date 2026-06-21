@@ -43,6 +43,7 @@ pub struct TypedProgramKind {
     pub decls: Option<Vec<TypedDecl>>,
     pub body: TypedExpr,
     pub monomorphized_functions: Vec<TypedDecl>,
+    pub monomorphized_types: Vec<TypedDecl>,
 }
 
 pub type TypedDecl = DeclSpanned<TypedDeclKind>;
