@@ -185,7 +185,6 @@ dependencies = [
  "chumsky",
  "inkwell",
  "insta",
- "llvm-sys",
  "logos",
  "serde",
 ]
@@ -277,9 +276,9 @@ checksum = "32a66949e030da00e8c7d4434b251670a91556f4144941d37452769c25d58a53"
 
 [[package]]
 name = "llvm-sys"
-version = "170.4.0"
+version = "201.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a5e5f51e78d53a09a9e7763d700d34859f3cc45a8fb9eaad2e8555bc84ff2a0"
+checksum = "9bb947e8b79254ca10d496d0798a9ba1287dcf68e50a92b016fec1cc45bef447"
 dependencies = [
  "anyhow",
  "cc",

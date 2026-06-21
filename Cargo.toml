@@ -1,7 +1,7 @@
 [package]
 name = "hulk-compiler"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [[bin]]
 name = "hulk"
@@ -10,8 +10,7 @@ path = "src/main.rs"
 [dependencies]
 ariadne = "0.6.0"
 chumsky = "0.13.0"
-inkwell = { version = "0.9.0", features = ["llvm17-0"] }
-llvm-sys = { version = "170", features = ["force-dynamic"] }
+inkwell = { version = "0.9.0", features = ["llvm20-1"] }
 logos = "0.15"
 serde = { version = "1.0.228", features = ["derive"] }
 
