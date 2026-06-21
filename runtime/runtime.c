@@ -72,7 +72,7 @@ double hulk_fn_rand(void)
 
 char *hulk_fn_print(char *str)
 {
-    printf("%s", str);
+    printf("%s\n", str);
     return str;
 }
 
