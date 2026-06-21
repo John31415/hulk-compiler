@@ -32,7 +32,16 @@ impl SemanticAnalyzer {
                     }
                 }
                 DeclKind::Type { name, .. } => {
-                    let ok = self.ctx.types.insert(name.clone(), None).is_some();
+                    let parent_default = if name == "Object" {
+                        None
+                    } else {
+                        Some(object_type)
+                    };
+                    let ok = self
+                        .ctx
+                        .types
+                        .insert(name.clone(), parent_default)
+                        .is_some();
                     if !ok {
                         self.diagnostics.push(
                             SemanticError::new(
@@ -80,6 +89,26 @@ type A(a: String) {}
             SemanticErrorKind::DuplicateType {
                 name: "A".to_string()
             }
+        );
+    }
+
+    #[test]
+    fn semantic_unit_test_type_without_inherits_is_subtype_of_object() {
+        let source = r#"
+type A {}
+type Box {
+    item = new A();
+}
+
+42;
+        "#;
+        let program = parse_program(source);
+        let mut analyzer = SemanticAnalyzer::new();
+        let _ = analyzer.analyze_program(program);
+        assert!(
+            analyzer.diagnostics.is_empty(),
+            "expected no diagnostics, got: {:?}",
+            analyzer.diagnostics
         );
     }
 }
