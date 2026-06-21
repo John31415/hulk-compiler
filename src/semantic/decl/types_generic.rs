@@ -1,6 +1,5 @@
 use crate::ast::DeclKind;
 use crate::lexer::span::Span;
-use crate::semantic::SemanticAnalyzer;
 use crate::semantic::context::GenericInstanceKey;
 use crate::semantic::error::{SemanticError, SemanticErrorKind};
 use crate::semantic::hir::{
@@ -9,6 +8,7 @@ use crate::semantic::hir::{
 };
 use crate::semantic::symbols::{Symbol, SymbolKind, SymbolType};
 use crate::semantic::types::{ConstructorParam, TypeId};
+use crate::semantic::SemanticAnalyzer;
 
 impl SemanticAnalyzer {
     pub fn instantiate_generic_type(
@@ -69,6 +69,9 @@ impl SemanticAnalyzer {
             return None;
         }
         self.ctx.mark_type_in_progress(key.clone());
+        let outer_current_type = self.ctx.current_type;
+        let outer_current_method = self.ctx.current_method.clone();
+        let outer_current_function_return = self.ctx.current_function_return;
         let mangled_name = self.ctx.mangle_instance_name(decl_name, concrete_types);
         let new_type_id = self
             .ctx
@@ -112,7 +115,9 @@ impl SemanticAnalyzer {
             parent.as_ref(),
             &type_decl.span,
             call_site_span,
+            concrete_types,
         );
+        self.ctx.current_type = Some(new_type_id);
         let parent_type_id_for_layout = typed_inherit_info.as_ref().map(|p| p.node.parent_type);
         self.ctx
             .types
@@ -132,11 +137,11 @@ impl SemanticAnalyzer {
                 default,
             } = classify_feature(feature)
             else {
-                // Method: pending
                 continue;
             };
-            let expected_attr_type = match type_name {
-                Some(t_name) => self.ctx.types.resolve(t_name).unwrap_or_else(|| {
+
+            let declared_attr_type = match type_name {
+                Some(t_name) => Some(self.ctx.types.resolve(t_name).unwrap_or_else(|| {
                     self.diagnostics.push(
                         SemanticError::new(
                             SemanticErrorKind::UnknownTypeInAttribute {
@@ -148,30 +153,39 @@ impl SemanticAnalyzer {
                         .into(),
                     );
                     object_type
-                }),
-                None => object_type,
+                })),
+                None => None,
             };
-            let typed_default = default.as_ref().map(|init_expr| {
-                let inferred_type = self.analyze_expr(init_expr);
-                if !self
-                    .ctx
-                    .types
-                    .is_subtype_of(inferred_type.ty, expected_attr_type)
-                {
-                    self.diagnostics.push(
-                        SemanticError::new(
-                            SemanticErrorKind::AttributeTypeMismatch {
-                                attribute: attr_name.to_string(),
-                                expected: self.ctx.types.get(expected_attr_type).name.clone(),
-                                found: self.ctx.types.get(inferred_type.ty).name.clone(),
-                            },
-                            type_decl.span,
-                        )
-                        .into(),
-                    );
+            let (expected_attr_type, typed_default) = match declared_attr_type {
+                Some(declared) => {
+                    let typed_default = default.as_ref().map(|init_expr| {
+                        let inferred_type = self.analyze_expr(init_expr);
+                        if !self.ctx.types.is_subtype_of(inferred_type.ty, declared) {
+                            self.diagnostics.push(
+                                SemanticError::new(
+                                    SemanticErrorKind::AttributeTypeMismatch {
+                                        attribute: attr_name.to_string(),
+                                        expected: self.ctx.types.get(declared).name.clone(),
+                                        found: self.ctx.types.get(inferred_type.ty).name.clone(),
+                                    },
+                                    type_decl.span,
+                                )
+                                .into(),
+                            );
+                        }
+                        inferred_type
+                    });
+                    (declared, typed_default)
                 }
-                inferred_type
-            });
+                None => match default.as_ref() {
+                    Some(init_expr) => {
+                        let inferred_type = self.analyze_expr(init_expr);
+                        let ty = inferred_type.ty;
+                        (ty, Some(inferred_type))
+                    }
+                    None => (object_type, None),
+                },
+            };
             let attr_symbol = Symbol {
                 name: attr_name.clone(),
                 kind: SymbolKind::Attribute,
@@ -199,8 +213,176 @@ impl SemanticAnalyzer {
                 feature.span,
             ));
         }
+        for feature in features {
+            let TypeFeaturesKindRef::Method {
+                method_name,
+                method_params,
+                return_type,
+                ..
+            } = classify_feature(feature)
+            else {
+                continue;
+            };
+            let has_unannotated_param = method_params.iter().any(|(_, t)| t.is_none());
+            if has_unannotated_param {
+                if let Some(parent_id) = parent_type_id_for_layout {
+                    if self.ctx.types.get_method(parent_id, method_name).is_some() {
+                        self.diagnostics.push(
+                            SemanticError::new(
+                                SemanticErrorKind::GenericMethodOverrideNotAllowed {
+                                    method: method_name.to_string(),
+                                    type_name: mangled_name.clone(),
+                                },
+                                feature.span,
+                            )
+                            .into(),
+                        );
+                    }
+                }
+                self.ctx.register_pending_generic_method(
+                    new_type_id,
+                    method_name.to_string(),
+                    feature.clone(),
+                );
+                continue;
+            }
+            self.ctx.push_scope();
+            self.ctx.declare(Symbol {
+                name: "self".to_string(),
+                kind: SymbolKind::Variable,
+                ty: SymbolType::Variable(new_type_id),
+                span: type_decl.span,
+            });
+            let mut typed_method_params = Vec::new();
+            for (p_name, p_type_opt) in method_params {
+                let p_type_id = match p_type_opt {
+                    Some(t_name) => self.ctx.types.resolve(t_name).unwrap_or_else(|| {
+                        self.diagnostics.push(
+                            SemanticError::new(
+                                SemanticErrorKind::UnknownTypeInMethodParameter {
+                                    method: method_name.to_string(),
+                                    param: p_name.to_string(),
+                                    type_name: t_name.to_string(),
+                                },
+                                feature.span,
+                            )
+                            .into(),
+                        );
+                        object_type
+                    }),
+                    None => object_type,
+                };
+                self.ctx.declare(Symbol {
+                    name: p_name.clone(),
+                    kind: SymbolKind::Parameter,
+                    ty: SymbolType::Variable(p_type_id),
+                    span: feature.span,
+                });
+                typed_method_params.push(TypedParam::new(
+                    TypedParamKind {
+                        name: p_name.clone(),
+                        type_id: p_type_id,
+                    },
+                    feature.span,
+                ));
+            }
+            let declared_ret_id = match return_type {
+                Some(t_name) => Some(self.ctx.types.resolve(t_name).unwrap_or_else(|| {
+                    self.diagnostics.push(
+                        SemanticError::new(
+                            SemanticErrorKind::UnknownReturnTypeInMethod {
+                                method: method_name.to_string(),
+                                type_name: t_name.to_string(),
+                            },
+                            feature.span,
+                        )
+                        .into(),
+                    );
+                    object_type
+                })),
+                None => None,
+            };
+            let parent_method_for_override = parent_type_id_for_layout
+                .and_then(|parent_id| self.ctx.types.get_method(parent_id, method_name).cloned());
+            if let Some(parent_method) = &parent_method_for_override {
+                self.validate_method_override_arity_and_params(
+                    method_name,
+                    method_params,
+                    &parent_method.ty,
+                    type_decl.span,
+                );
+            }
+            self.ctx.current_function_return = declared_ret_id;
+            self.ctx.current_method = Some(method_name.to_string());
+            let body_type = self.analyze_expr(method_body(feature));
+            let expected_ret_id = match declared_ret_id {
+                Some(declared) => {
+                    if !self.ctx.types.is_subtype_of(body_type.ty, declared) {
+                        self.diagnostics.push(
+                            SemanticError::new(
+                                SemanticErrorKind::MethodReturnTypeMismatch {
+                                    method: method_name.to_string(),
+                                    expected: self.ctx.types.get(declared).name.clone(),
+                                    found: self.ctx.types.get(body_type.ty).name.clone(),
+                                },
+                                body_type.span,
+                            )
+                            .into(),
+                        );
+                    }
+                    declared
+                }
+                None => body_type.ty,
+            };
+            if let Some(parent_method) = &parent_method_for_override {
+                if let SymbolType::Function {
+                    ret: parent_ret, ..
+                } = &parent_method.ty
+                {
+                    if expected_ret_id != *parent_ret {
+                        self.diagnostics.push(
+                            SemanticError::new(
+                                SemanticErrorKind::InvalidOverrideReturnType {
+                                    method: method_name.to_string(),
+                                    found: self.ctx.types.get(expected_ret_id).name.clone(),
+                                    expected: self.ctx.types.get(*parent_ret).name.clone(),
+                                },
+                                type_decl.span,
+                            )
+                            .into(),
+                        );
+                    }
+                }
+            }
+            self.ctx.current_function_return = None;
+            self.ctx.current_method = None;
+            self.ctx.pop_scope();
+            if !self.ctx.types.insert_method(
+                new_type_id,
+                Symbol {
+                    name: method_name.to_string(),
+                    kind: SymbolKind::Function,
+                    ty: SymbolType::Function {
+                        params: typed_method_params.iter().map(|p| p.node.type_id).collect(),
+                        ret: expected_ret_id,
+                    },
+                    span: feature.span,
+                },
+            ) {}
+            typed_features.push(TypedTypeFeature::new(
+                TypedTypeFeatureKind::Method {
+                    name: method_name.to_string(),
+                    params: typed_method_params,
+                    return_type: expected_ret_id,
+                    body: body_type,
+                },
+                feature.span,
+            ));
+        }
         self.ctx.pop_scope();
-        self.ctx.current_type = None;
+        self.ctx.current_type = outer_current_type;
+        self.ctx.current_method = outer_current_method;
+        self.ctx.current_function_return = outer_current_function_return;
         self.ctx.unmark_type_in_progress(&key);
         let typed_decl = TypedDecl::new(
             TypedDeclKind::Type {
@@ -222,6 +404,7 @@ impl SemanticAnalyzer {
         parent: Option<&crate::ast::InheritInfo>,
         type_decl_span: &crate::lexer::span::Span,
         call_site_span: Span,
+        child_concrete_types: &[TypeId],
     ) -> Option<TypedInheritInfo> {
         let inherit_info = parent?;
         let object_type = self.resolve_builtin("Object");
@@ -254,6 +437,7 @@ impl SemanticAnalyzer {
             .as_ref()
             .map(|v| v.as_slice())
             .unwrap_or_default();
+
         if !self.ctx.types.is_generic_template(parent_molde_id) {
             let expected_parent_params = self
                 .ctx
@@ -308,6 +492,42 @@ impl SemanticAnalyzer {
                 inherit_info.span,
             ));
         }
+        if inherit_info.node.args.is_none() {
+            let parent_key: GenericInstanceKey =
+                (parent_name.clone(), child_concrete_types.to_vec());
+            let resolved_parent_type_id =
+                if let Some(existing) = self.ctx.get_type_instance(&parent_key) {
+                    existing
+                } else if self.ctx.is_type_in_progress(&parent_key) {
+                    self.diagnostics.push(
+                        SemanticError::new(
+                            SemanticErrorKind::UnknownParentType {
+                                child: child_name.to_string(),
+                                parent: parent_name.to_string(),
+                            },
+                            *type_decl_span,
+                        )
+                        .into(),
+                    );
+                    object_type
+                } else {
+                    match self.instantiate_generic_type(
+                        parent_name,
+                        child_concrete_types,
+                        call_site_span,
+                    ) {
+                        Some(id) => id,
+                        None => object_type,
+                    }
+                };
+            return Some(TypedInheritInfo::new(
+                TypedInheritInfoKind {
+                    parent_type: resolved_parent_type_id,
+                    args: None,
+                },
+                inherit_info.span,
+            ));
+        }
         let mut typed_args = Vec::new();
         let mut parent_concrete_types = Vec::new();
         for arg_expr in actual_args {
@@ -348,6 +568,57 @@ impl SemanticAnalyzer {
             inherit_info.span,
         ))
     }
+
+    fn validate_method_override_arity_and_params(
+        &mut self,
+        method_name: &str,
+        current_params: &[(String, Option<String>)],
+        parent_method_sig: &SymbolType,
+        span: Span,
+    ) {
+        if let SymbolType::Function {
+            params: parent_params,
+            ..
+        } = parent_method_sig
+        {
+            if current_params.len() != parent_params.len() {
+                self.diagnostics.push(
+                    SemanticError::new(
+                        SemanticErrorKind::InvalidOverrideArity {
+                            method: method_name.to_string(),
+                            found: current_params.len(),
+                            expected: parent_params.len(),
+                        },
+                        span,
+                    )
+                    .into(),
+                );
+            }
+            for (i, (p_name, p_type_opt)) in current_params.iter().enumerate() {
+                if i >= parent_params.len() {
+                    break;
+                }
+                let current_p_id = p_type_opt
+                    .as_ref()
+                    .and_then(|t| self.ctx.types.resolve(t))
+                    .unwrap_or_else(|| self.ctx.types.resolve("Object").unwrap());
+                if current_p_id != parent_params[i] {
+                    self.diagnostics.push(
+                        SemanticError::new(
+                            SemanticErrorKind::InvalidOverrideParameterType {
+                                method: method_name.to_string(),
+                                param_name: p_name.to_string(),
+                                found: self.ctx.types.get(current_p_id).name.clone(),
+                                expected: self.ctx.types.get(parent_params[i]).name.clone(),
+                            },
+                            span,
+                        )
+                        .into(),
+                    );
+                }
+            }
+        }
+    }
 }
 
 enum TypeFeaturesKindRef<'a> {
@@ -356,7 +627,11 @@ enum TypeFeaturesKindRef<'a> {
         type_name: &'a Option<String>,
         default: &'a Option<crate::ast::Expr>,
     },
-    Method,
+    Method {
+        method_name: &'a String,
+        method_params: &'a Vec<(String, Option<String>)>,
+        return_type: &'a Option<String>,
+    },
 }
 
 fn classify_feature(feature: &crate::ast::TypeFeatures) -> TypeFeaturesKindRef<'_> {
@@ -370,6 +645,22 @@ fn classify_feature(feature: &crate::ast::TypeFeatures) -> TypeFeaturesKindRef<'
             type_name,
             default,
         },
-        crate::ast::TypeFeaturesKind::Method { .. } => TypeFeaturesKindRef::Method,
+        crate::ast::TypeFeaturesKind::Method {
+            name,
+            params,
+            return_type,
+            ..
+        } => TypeFeaturesKindRef::Method {
+            method_name: name,
+            method_params: params,
+            return_type,
+        },
+    }
+}
+
+fn method_body(feature: &crate::ast::TypeFeatures) -> &crate::ast::Expr {
+    match &feature.node {
+        crate::ast::TypeFeaturesKind::Method { body, .. } => body,
+        _ => panic!("method_body called on a non-Method TypeFeatures"),
     }
 }
