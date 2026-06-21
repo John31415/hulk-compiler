@@ -93,9 +93,39 @@ fn main() -> ExitCode {
     ExitCode::SUCCESS
 }
 
+fn find_llc() -> Result<String, String> {
+    if let Ok(path) = std::env::var("HULK_LLC") {
+        return Ok(path);
+    }
+    let candidates = ["llc", "llc-20", "llc-19", "llc-18", "llc-17"];
+    for candidate in candidates {
+        if Command::new(candidate).arg("--version").output().is_ok() {
+            return Ok(candidate.to_string());
+        }
+    }
+    Err("LLVM backend unavailable: could not find llc. \
+         Install LLVM or set HULK_LLC to the llc executable path."
+        .to_string())
+}
+
+fn find_cc() -> Result<String, String> {
+    if let Ok(path) = std::env::var("HULK_CC") {
+        return Ok(path);
+    }
+    let candidates = ["cc", "clang", "gcc"];
+    for candidate in candidates {
+        if Command::new(candidate).arg("--version").output().is_ok() {
+            return Ok(candidate.to_string());
+        }
+    }
+    Err("Native backend unavailable: could not find a C compiler. \
+         Install gcc/clang or set HULK_CC."
+        .to_string())
+}
+
 fn compile_ir_to_executable(ir_path: &str) -> Result<(), String> {
-    let llc = std::env::var("HULK_LLC").unwrap_or_else(|_| "llc".to_string());
-    let cc = std::env::var("HULK_CC").unwrap_or_else(|_| "cc".to_string());
+    let llc = find_llc()?;
+    let cc = find_cc()?;
     let obj_path = "output.o";
     let runtime_src = "runtime/runtime.c";
     let runtime_obj = "runtime.o";
@@ -109,7 +139,8 @@ fn compile_ir_to_executable(ir_path: &str) -> Result<(), String> {
             "-o",
             obj_path,
         ],
-    )?;
+    )
+    .map_err(|e| format!("LLVM code generation failed using '{}': {}", llc, e))?;
     run_command(
         &cc,
         &[
@@ -121,11 +152,13 @@ fn compile_ir_to_executable(ir_path: &str) -> Result<(), String> {
             "-o",
             runtime_obj,
         ],
-    )?;
+    )
+    .map_err(|e| format!("Runtime compilation failed using '{}': {}", cc, e))?;
     run_command(
         &cc,
         &["-no-pie", "-o", exe_path, obj_path, runtime_obj, "-lm"],
-    )?;
+    )
+    .map_err(|e| format!("Linking failed using '{}': {}", cc, e))?;
     Ok(())
 }
 
