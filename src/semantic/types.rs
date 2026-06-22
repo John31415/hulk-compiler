@@ -1,8 +1,10 @@
 use super::symbols::Symbol;
+use crate::semantic::context::SemanticContext;
 use crate::semantic::symbols::SymbolType;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::collections::VecDeque;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 pub struct TypeId(pub usize);
@@ -13,8 +15,15 @@ pub struct ConstructorParam {
     pub ty: Option<TypeId>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum TypeKind {
+    Class,
+    Protocol { parents: Vec<TypeId> },
+}
+
 #[derive(Debug, Clone)]
 pub struct TypeInfo {
+    pub kind: TypeKind,
     pub name: String,
     pub parent: Option<TypeId>,
     pub declared_constructor_params: Option<Vec<ConstructorParam>>,
@@ -22,6 +31,12 @@ pub struct TypeInfo {
     pub attributes: HashMap<String, Symbol>,
     pub methods: HashMap<String, Symbol>,
     pub is_generic_template: bool,
+}
+
+impl TypeInfo {
+    pub fn is_protocol(&self) -> bool {
+        matches!(&self.kind, TypeKind::Protocol { .. })
+    }
 }
 
 pub struct TypeTable {
@@ -56,6 +71,7 @@ impl TypeTable {
         }
         let id = TypeId(self.infos.len());
         self.infos.push(TypeInfo {
+            kind: TypeKind::Class,
             name: name.clone(),
             parent,
             declared_constructor_params: None,
@@ -71,6 +87,7 @@ impl TypeTable {
     pub fn insert_instantiation(&mut self, mangled_name: String, parent: Option<TypeId>) -> TypeId {
         let id = TypeId(self.infos.len());
         self.infos.push(TypeInfo {
+            kind: TypeKind::Class,
             name: mangled_name.clone(),
             parent,
             declared_constructor_params: None,
@@ -83,9 +100,95 @@ impl TypeTable {
         id
     }
 
-    pub fn is_subtype_of(&self, left: TypeId, right: TypeId) -> bool {
+    pub fn is_subtype_of(&self, ctx: &SemanticContext, left: TypeId, right: TypeId) -> bool {
         if left == right {
             return true;
+        }
+        let is_basic_type = |id: TypeId| id.0 <= 3;
+        let left_kind = ctx.types.infos[left.0].kind.clone();
+        let right_kind = ctx.types.infos[right.0].kind.clone();
+        if !is_basic_type(left) && matches!(right_kind, TypeKind::Protocol { .. }) {
+            if matches!(left_kind, TypeKind::Protocol { .. }) {
+                let mut queue = VecDeque::new();
+                let mut used = HashMap::new();
+                queue.push_back(left);
+                used.insert(left, true);
+                while let Some(id) = queue.pop_front() {
+                    if id == right {
+                        return true;
+                    }
+                    if let TypeKind::Protocol { parents } = &ctx.types.infos[id.0].kind {
+                        for parent in parents {
+                            if !used.contains_key(parent) {
+                                used.insert(*parent, true);
+                                queue.push_back(*parent);
+                            }
+                        }
+                    }
+                }
+            } else {
+                let mut expected_methods: Vec<Symbol> = Vec::new();
+                for (_, m) in &ctx.types.infos[right.0].methods {
+                    expected_methods.push(m.clone());
+                }
+                let mut ok = true;
+                for m in expected_methods {
+                    let cmp_methods =
+                        |m_type: Symbol, m_protocol: Symbol, ctx: &SemanticContext| {
+                            if m_type.name != m_protocol.name {
+                                return false;
+                            }
+                            if let SymbolType::Function {
+                                params: p_type,
+                                ret: r_type,
+                            } = m_type.ty
+                            {
+                                if let SymbolType::Function {
+                                    params: p_protocol,
+                                    ret: r_protocol,
+                                } = m_protocol.ty
+                                {
+                                    if self.is_subtype_of(&ctx, r_type, r_protocol) {
+                                        if p_protocol.len() == p_type.len() {
+                                            let mut ok = true;
+                                            for (param_type, param_protocol) in
+                                                p_type.iter().zip(p_protocol.iter())
+                                            {
+                                                if !self.is_subtype_of(
+                                                    &ctx,
+                                                    *param_protocol,
+                                                    *param_type,
+                                                ) {
+                                                    ok = false;
+                                                }
+                                            }
+                                            return ok;
+                                        }
+                                    }
+                                }
+                            }
+                            false
+                        };
+                    let mut left_methods: Vec<Symbol> = Vec::new();
+                    let mut current = Some(left);
+                    while let Some(id) = current {
+                        for (_, m) in &ctx.types.infos[id.0].methods {
+                            left_methods.push(m.clone());
+                        }
+                        current = ctx.types.infos[id.0].parent;
+                    }
+                    let mut ok2 = false;
+                    for t_m in &left_methods {
+                        if cmp_methods(t_m.clone(), m.clone(), ctx) {
+                            ok2 = true;
+                        }
+                    }
+                    if !ok2 {
+                        ok = false;
+                    }
+                }
+                return ok;
+            }
         }
         let mut current = Some(left);
         while let Some(id) = current {
@@ -133,17 +236,7 @@ impl TypeTable {
     pub fn get_parent(&self, type_id: TypeId) -> Option<TypeId> {
         self.infos[type_id.0].parent
     }
-
-    pub fn get_method_return_type(&self, type_id: TypeId, method_name: &str) -> Option<TypeId> {
-        let info = &self.infos[type_id.0];
-        if let Some(method_symbol) = info.methods.get(method_name) {
-            if let SymbolType::Function { ret, .. } = &method_symbol.ty {
-                return Some(*ret);
-            }
-        }
-        None
-    }
-
+    
     pub fn find_lca(&self, a: TypeId, b: TypeId) -> TypeId {
         let mut ancestors_a = HashSet::new();
         let mut current = Some(a);
@@ -219,5 +312,26 @@ impl TypeTable {
 
     pub fn is_generic_template(&self, type_id: TypeId) -> bool {
         self.infos[type_id.0].is_generic_template
+    }
+
+    pub fn insert_protocol_placeholder(&mut self, name: String) -> Option<TypeId> {
+        if self.by_name.contains_key(&name) {
+            return None;
+        }
+        let id = TypeId(self.infos.len());
+        self.infos.push(TypeInfo {
+            kind: TypeKind::Protocol {
+                parents: Vec::new(),
+            },
+            name: name.clone(),
+            parent: None,
+            declared_constructor_params: None,
+            constructor_params: Vec::new(),
+            attributes: HashMap::new(),
+            methods: HashMap::new(),
+            is_generic_template: false,
+        });
+        self.by_name.insert(name, id);
+        Some(id)
     }
 }
