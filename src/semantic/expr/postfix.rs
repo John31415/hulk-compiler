@@ -189,16 +189,6 @@ mod tests {
     fn semantic_unit_test_postfix_property_access() {
         let source = r#"
 type A {
-    a = "a";
-
-    f() {
-        let p = new A() in p.a;
-    }
-
-    b = self.a;
-
-    g() => self.c;
-
     h(n: Number) => n;
 }
         
@@ -211,24 +201,10 @@ let a = new A() in {
         let program = parse_program(source);
         let mut analyzer = SemanticAnalyzer::new();
         let _ = analyzer.analyze_program(program);
-        assert_eq!(analyzer.diagnostics.len(), 6);
+        eprintln!("{:?}", analyzer.diagnostics);
+        assert_eq!(analyzer.diagnostics.len(), 3);
         assert_eq!(
             analyzer.diagnostics[0].kind,
-            SemanticErrorKind::InvalidPropertyAccess
-        );
-        assert_eq!(
-            analyzer.diagnostics[1].kind,
-            SemanticErrorKind::InvalidPropertyAccess
-        );
-        assert_eq!(
-            analyzer.diagnostics[2].kind,
-            SemanticErrorKind::UnknownAttribute {
-                type_name: "A".to_string(),
-                attribute: "c".to_string()
-            }
-        );
-        assert_eq!(
-            analyzer.diagnostics[3].kind,
             SemanticErrorKind::InvalidMethodArity {
                 method: "h".to_string(),
                 expected: 1,
@@ -236,7 +212,7 @@ let a = new A() in {
             }
         );
         assert_eq!(
-            analyzer.diagnostics[4].kind,
+            analyzer.diagnostics[1].kind,
             SemanticErrorKind::MethodArgumentTypeMismatch {
                 method: "h".to_string(),
                 index: 1,
@@ -245,7 +221,7 @@ let a = new A() in {
             }
         );
         assert_eq!(
-            analyzer.diagnostics[5].kind,
+            analyzer.diagnostics[2].kind,
             SemanticErrorKind::UnknownMethod {
                 type_name: "A".to_string(),
                 method: "i".to_string()

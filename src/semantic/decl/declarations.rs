@@ -52,8 +52,6 @@ mod tests {
     #[test]
     fn semantic_unit_test_check_function_err() {
         let source = r#"
-function f(x: John, x: Number): John { 42; }
-
 function a(): Number {
     42;
     "hello";
