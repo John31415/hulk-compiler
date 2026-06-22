@@ -1,28 +1,12 @@
-use crate::ast::{Expr, ExprKind};
+use crate::ast::Expr;
 use crate::lexer::span::Span;
+use crate::semantic::SemanticAnalyzer;
 use crate::semantic::error::{SemanticError, SemanticErrorKind};
 use crate::semantic::hir::{TypedExpr, TypedExprKind};
-use crate::semantic::SemanticAnalyzer;
 
 impl SemanticAnalyzer {
     pub fn analyze_property_access(&mut self, obj: &Expr, property: &str, span: Span) -> TypedExpr {
         let obj_expr = self.analyze_expr(obj);
-        let is_self_access = match &obj.node {
-            ExprKind::Variable(name) => name == "self",
-            _ => false,
-        };
-        if !is_self_access {
-            self.diagnostics
-                .push(SemanticError::new(SemanticErrorKind::InvalidPropertyAccess, span).into());
-            return TypedExpr::new(
-                TypedExprKind::PropertyAccess {
-                    obj: Box::new(obj_expr),
-                    property: property.into(),
-                },
-                self.resolve_builtin("Object"),
-                span,
-            );
-        }
         if self.ctx.current_method.is_none() {
             self.diagnostics
                 .push(SemanticError::new(SemanticErrorKind::InvalidPropertyAccess, span).into());
@@ -96,7 +80,11 @@ impl SemanticAnalyzer {
                 let arg_type = self.analyze_expr(arg);
                 if i < param_types.len() {
                     let expected_type = param_types[i];
-                    if !self.ctx.types.is_subtype_of(&self.ctx, arg_type.ty, expected_type) {
+                    if !self
+                        .ctx
+                        .types
+                        .is_subtype_of(&self.ctx, arg_type.ty, expected_type)
+                    {
                         self.diagnostics.push(
                             SemanticError::new(
                                 SemanticErrorKind::MethodArgumentTypeMismatch {
@@ -195,7 +183,7 @@ impl SemanticAnalyzer {
 
 #[cfg(test)]
 mod tests {
-    use crate::semantic::{error::SemanticErrorKind, test_utils::parse_program, SemanticAnalyzer};
+    use crate::semantic::{SemanticAnalyzer, error::SemanticErrorKind, test_utils::parse_program};
 
     #[test]
     fn semantic_unit_test_postfix_property_access() {
