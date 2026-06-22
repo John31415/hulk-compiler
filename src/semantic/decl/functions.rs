@@ -22,7 +22,23 @@ impl SemanticAnalyzer {
         for (param_name, param_type_opt) in params {
             let param_type_id = match param_type_opt {
                 Some(type_name) => match self.ctx.types.resolve(type_name) {
-                    Some(id) => id,
+                    Some(id) => {
+                        if self.ctx.types.get(id).is_protocol() {
+                            self.diagnostics.push(
+                                SemanticError::new(
+                                    SemanticErrorKind::ProtocolNotAllowedAsParameterType {
+                                        type_name: type_name.to_string(),
+                                        param_name: param_name.to_string(),
+                                    },
+                                    function_decl.span,
+                                )
+                                .into(),
+                            );
+                            self.ctx.types.resolve("Object").unwrap()
+                        } else {
+                            id
+                        }
+                    }
                     None => {
                         self.diagnostics.push(
                             SemanticError::new(
@@ -87,7 +103,11 @@ impl SemanticAnalyzer {
         };
         self.ctx.current_function_return = Some(expected_return);
         let body_type = self.analyze_expr(body);
-        if !self.ctx.types.is_subtype_of(body_type.ty, expected_return) {
+        if !self
+            .ctx
+            .types
+            .is_subtype_of(&self.ctx, body_type.ty, expected_return)
+        {
             self.diagnostics.push(
                 SemanticError::new(
                     SemanticErrorKind::FunctionReturnTypeMismatch {
@@ -187,7 +207,11 @@ impl SemanticAnalyzer {
         self.ctx.current_function_return = None;
         let final_return = match declared_return {
             Some(expected_return) => {
-                if !self.ctx.types.is_subtype_of(body_type.ty, expected_return) {
+                if !self
+                    .ctx
+                    .types
+                    .is_subtype_of(&self.ctx, body_type.ty, expected_return)
+                {
                     self.diagnostics.push(
                         SemanticError::new(
                             SemanticErrorKind::FunctionReturnTypeMismatch {

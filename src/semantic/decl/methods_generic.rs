@@ -98,7 +98,7 @@ impl SemanticAnalyzer {
         self.ctx.current_method = None;
         let final_return = match declared_return {
             Some(expected_return) => {
-                if !self.ctx.types.is_subtype_of(body_type.ty, expected_return) {
+                if !self.ctx.types.is_subtype_of(&self.ctx, body_type.ty, expected_return) {
                     self.diagnostics.push(
                         SemanticError::new(
                             SemanticErrorKind::MethodReturnTypeMismatch {
