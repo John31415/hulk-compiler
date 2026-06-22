@@ -255,6 +255,9 @@ impl SemanticAnalyzer {
                 );
                 typed_features.push(typed_feature);
             }
+        }
+        self.ctx.pop_scope(); 
+        for feature in features {
             if let TypeFeaturesKind::Method {
                 name: method_name,
                 params: method_params,
