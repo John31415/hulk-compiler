@@ -3,7 +3,7 @@ use crate::ast::{ProtocolMethodsKind, TypeFeaturesKind};
 use crate::semantic::SemanticAnalyzer;
 use crate::semantic::error::{SemanticError, SemanticErrorKind};
 use crate::semantic::symbols::{Symbol, SymbolKind, SymbolType};
-use crate::semantic::types::ConstructorParam;
+use crate::semantic::types::{ConstructorParam, TypeId};
 
 impl SemanticAnalyzer {
     pub fn register_signatures(&mut self, decls: &[Decl]) -> bool {
@@ -15,14 +15,22 @@ impl SemanticAnalyzer {
                     return_type,
                     ..
                 } => {
-                    let mut param_types: Vec<Option<crate::semantic::types::TypeId>> = Vec::new();
+                    let mut param_types: Vec<Option<TypeId>> = Vec::new();
                     let mut any_param_generic = false;
+                    let mut err = false;
                     for (_, param_type_opt) in params {
                         match param_type_opt {
                             Some(type_name) => {
                                 let resolved = self.ctx.types.resolve(type_name);
                                 if resolved.is_none() {
-                                    any_param_generic = true;
+                                    self.diagnostics.push(SemanticError::new(
+                                        SemanticErrorKind::UnknownType {
+                                            name: type_name.clone(),
+                                        },
+                                        decl.span,
+                                    ));
+                                    err = true;
+                                    continue;
                                 }
                                 param_types.push(resolved);
                             }
@@ -32,9 +40,25 @@ impl SemanticAnalyzer {
                             }
                         }
                     }
-                    let ret_resolved = return_type.as_ref().and_then(|t| self.ctx.types.resolve(t));
-                    let ret_is_generic =
-                        return_type.is_some() && ret_resolved.is_none() || return_type.is_none();
+                    if err {
+                        continue;
+                    }
+                    let ret_resolved = match return_type {
+                        Some(type_name) => {
+                            let resolved = self.ctx.types.resolve(type_name);
+                            if resolved.is_none() {
+                                self.diagnostics.push(SemanticError::new(
+                                    SemanticErrorKind::UnknownType {
+                                        name: type_name.clone(),
+                                    },
+                                    decl.span,
+                                ));
+                            }
+                            resolved
+                        }
+                        None => None,
+                    };
+                    let ret_is_generic = return_type.is_none();
                     let new_ty = if any_param_generic || ret_is_generic {
                         self.ctx.register_generic_decl(name.clone(), decl.clone());
                         SymbolType::GenericFunction {
