@@ -2,9 +2,11 @@ pub mod decl_types;
 pub mod functions;
 pub mod methods;
 
+use std::collections::{HashMap, VecDeque};
+
 use crate::semantic::{
-    hir::{TypedDecl, TypedDeclKind, TypedProgram},
     SemanticAnalyzer,
+    hir::{TypedDecl, TypedDeclKind, TypedProgram},
 };
 
 use super::{Backend, BackendError, BackendResult};
@@ -39,8 +41,11 @@ impl<'ctx> Backend<'ctx> {
         if let Some(decls) = &program.node.decls {
             self.compile_top_level(decls, sema)?;
         }
-        for type_instance_decl in &program.node.monomorphized_types {
-            self.compile_type(type_instance_decl, sema)?;
+        for decl in &program.node.monomorphized_types {
+            self.compile_type_struct_only(decl, sema)?;
+        }
+        for decl in &program.node.monomorphized_types {
+            self.compile_type_methods(decl, sema)?;
         }
         for instance_decl in &program.node.monomorphized_functions {
             self.compile_function(instance_decl, sema)?;
@@ -61,19 +66,72 @@ impl<'ctx> Backend<'ctx> {
         Ok(())
     }
 
+    fn topo_sort_types<'a>(decls: &'a [TypedDecl]) -> Vec<&'a TypedDecl> {
+        let mut type_decls: Vec<(usize, &TypedDecl)> = Vec::new();
+        let mut other_decls: Vec<&TypedDecl> = Vec::new();
+        for decl in decls {
+            if matches!(&decl.node, TypedDeclKind::Type { .. }) {
+                type_decls.push((type_decls.len(), decl));
+            } else {
+                other_decls.push(decl);
+            }
+        }
+        let n = type_decls.len();
+        let id_to_idx: HashMap<_, usize> = type_decls
+            .iter()
+            .enumerate()
+            .filter_map(|(i, (_, d))| {
+                if let TypedDeclKind::Type { type_id, .. } = &d.node {
+                    Some((*type_id, i))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        let mut in_degree = vec![0usize; n];
+        let mut children: Vec<Vec<usize>> = vec![Vec::new(); n];
+        for (i, (_, decl)) in type_decls.iter().enumerate() {
+            if let TypedDeclKind::Type { parent, .. } = &decl.node {
+                if let Some(inherit) = parent {
+                    let parent_type_id = inherit.node.parent_type;
+                    if let Some(&j) = id_to_idx.get(&parent_type_id) {
+                        in_degree[i] += 1;
+                        children[j].push(i);
+                    }
+                }
+            }
+        }
+        let mut queue: VecDeque<usize> = (0..n).filter(|&i| in_degree[i] == 0).collect();
+        let mut sorted: Vec<&TypedDecl> = Vec::with_capacity(n);
+        while let Some(i) = queue.pop_front() {
+            sorted.push(type_decls[i].1);
+            for &child in &children[i] {
+                in_degree[child] -= 1;
+                if in_degree[child] == 0 {
+                    queue.push_back(child);
+                }
+            }
+        }
+        if sorted.len() < n {
+            for (i, (_, decl)) in type_decls.iter().enumerate() {
+                if in_degree[i] > 0 {
+                    sorted.push(decl);
+                }
+            }
+        }
+        other_decls.into_iter().chain(sorted).collect()
+    }
+
     fn declare_top_level(
         &mut self,
         decls: &[TypedDecl],
         sema: &SemanticAnalyzer,
     ) -> BackendResult<()> {
-        for decl in decls {
+        let ordered = Self::topo_sort_types(decls);
+        for decl in ordered {
             match &decl.node {
-                TypedDeclKind::Function { .. } => {
-                    self.declare_function(decl)?;
-                }
-                TypedDeclKind::Type { .. } => {
-                    self.declare_type(decl, sema)?;
-                }
+                TypedDeclKind::Function { .. } => self.declare_function(decl)?,
+                TypedDeclKind::Type { .. } => self.declare_type(decl, sema)?,
             }
         }
         Ok(())
@@ -84,14 +142,20 @@ impl<'ctx> Backend<'ctx> {
         decls: &[TypedDecl],
         sema: &SemanticAnalyzer,
     ) -> BackendResult<()> {
-        for decl in decls {
-            match &decl.node {
-                TypedDeclKind::Function { .. } => {
-                    self.compile_function(decl, sema)?;
-                }
-                TypedDeclKind::Type { .. } => {
-                    self.compile_type(decl, sema)?;
-                }
+        let ordered = Self::topo_sort_types(decls);
+        for decl in &ordered {
+            if matches!(&decl.node, TypedDeclKind::Type { .. }) {
+                self.compile_type_struct_only(decl, sema)?;
+            }
+        }
+        for decl in &ordered {
+            if matches!(&decl.node, TypedDeclKind::Type { .. }) {
+                self.compile_type_methods(decl, sema)?;
+            }
+        }
+        for decl in &ordered {
+            if matches!(&decl.node, TypedDeclKind::Function { .. }) {
+                self.compile_function(decl, sema)?;
             }
         }
         Ok(())

@@ -24,6 +24,9 @@ impl<'ctx> Backend<'ctx> {
             .get_layout(expr.ty)
             .ok_or(BackendError::InvalidExpression)?
             .struct_type;
+        if struct_type.is_opaque() {
+            return Err(BackendError::UnknownType(name.clone()));
+        }
         let ptr_val: PointerValue<'ctx> = self
             .builder
             .build_malloc(struct_type, &format!("new_{}", name))

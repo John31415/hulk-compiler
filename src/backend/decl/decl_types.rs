@@ -60,7 +60,11 @@ impl<'ctx> Backend<'ctx> {
         Ok(())
     }
 
-    pub fn compile_type(&mut self, decl: &TypedDecl, sema: &SemanticAnalyzer) -> BackendResult<()> {
+    pub fn compile_type_struct_only(
+        &mut self,
+        decl: &TypedDecl,
+        sema: &SemanticAnalyzer,
+    ) -> BackendResult<()> {
         let TypedDeclKind::Type {
             name,
             params,
@@ -230,22 +234,37 @@ impl<'ctx> Backend<'ctx> {
                         .build_store(field_ptr, init_val)
                         .map_err(|_| BackendError::InvalidExpression)?;
                 }
-                if let TypedTypeFeatureKind::Method { .. } = &feature.node {
-                    self.compile_method(name, feature, sema)?;
-                    self.builder.position_at_end(entry);
-                }
             }
+
             self.builder
                 .build_return(Some(&self_ptr))
                 .map_err(|_| BackendError::InvalidExpression)?;
             Ok(())
         })();
+
         self.pop_scope();
         self.current_function = old_fn;
         self.current_type = old_type;
         self.current_method = old_method;
         result
     }
+
+    pub fn compile_type_methods(
+        &mut self,
+        decl: &TypedDecl,
+        sema: &SemanticAnalyzer,
+    ) -> BackendResult<()> {
+        let TypedDeclKind::Type { name, features, .. } = &decl.node else {
+            return Ok(());
+        };
+        for feature in features {
+            if let TypedTypeFeatureKind::Method { .. } = &feature.node {
+                self.compile_method(name, feature, sema)?;
+            }
+        }
+        Ok(())
+    }
+
     fn build_vtable_global(
         &mut self,
         name: &str,
@@ -298,7 +317,6 @@ impl<'ctx> Backend<'ctx> {
         let tag_const = i32_ty.const_int(type_id.0 as u64, false);
         let vtable_const =
             vtable_struct_type.const_named_struct(&[tag_const.into(), methods_array_const.into()]);
-
         let global_name = format!("vtable_{}", name);
         let global = self
             .module
