@@ -111,11 +111,11 @@ impl SemanticAnalyzer {
                                     Some(id) => id,
                                     None => object_type,
                                 };
-                                if !self
-                                    .ctx
-                                    .types
-                                    .is_subtype_of(arg_expr_type.ty, expected_type_id)
-                                {
+                                if !self.ctx.types.is_subtype_of(
+                                    &self.ctx,
+                                    arg_expr_type.ty,
+                                    expected_type_id,
+                                ) {
                                     self.diagnostics.push(
                                         SemanticError::new(
                                             SemanticErrorKind::InheritanceArgumentTypeMismatch {
@@ -182,6 +182,9 @@ impl SemanticAnalyzer {
                 default,
             } = &feature.node
             {
+                let typed_default = default.as_ref().map(|init_expr| {
+                    self.analyze_expr(init_expr)
+                });
                 let expected_attr_type = match type_name {
                     Some(t_name) => self.ctx.types.resolve(t_name).unwrap_or_else(|| {
                         self.diagnostics.push(
@@ -196,29 +199,30 @@ impl SemanticAnalyzer {
                         );
                         object_type
                     }),
-                    None => object_type,
+                    None => typed_default
+                        .as_ref()
+                        .map(|td| td.ty)
+                        .unwrap_or(object_type),
                 };
-                let typed_default = default.as_ref().map(|init_expr| {
-                    let inferred_type = self.analyze_expr(init_expr);
-                    if !self
-                        .ctx
-                        .types
-                        .is_subtype_of(inferred_type.ty, expected_attr_type)
-                    {
+                if let Some(ref default_val) = typed_default {
+                    if !self.ctx.types.is_subtype_of(
+                        &self.ctx,
+                        default_val.ty,
+                        expected_attr_type,
+                    ) {
                         self.diagnostics.push(
                             SemanticError::new(
                                 SemanticErrorKind::AttributeTypeMismatch {
                                     attribute: attr_name.to_string(),
                                     expected: self.ctx.types.get(expected_attr_type).name.clone(),
-                                    found: self.ctx.types.get(inferred_type.ty).name.clone(),
+                                    found: self.ctx.types.get(default_val.ty).name.clone(),
                                 },
                                 type_decl.span,
                             )
                             .into(),
                         );
                     }
-                    inferred_type
-                });
+                }
                 let attr_symbol = Symbol {
                     name: attr_name.clone(),
                     kind: SymbolKind::Attribute,
@@ -270,7 +274,23 @@ impl SemanticAnalyzer {
                 for (p_name, p_type_opt) in method_params {
                     let p_type_id = match p_type_opt {
                         Some(t_name) => match self.ctx.types.resolve(t_name) {
-                            Some(id) => id,
+                            Some(id) => {
+                                if self.ctx.types.get(id).is_protocol() {
+                                    self.diagnostics.push(
+                                        SemanticError::new(
+                                            SemanticErrorKind::ProtocolNotAllowedAsParameterType {
+                                                type_name: t_name.to_string(),
+                                                param_name: p_name.to_string(),
+                                            },
+                                            feature.span,
+                                        )
+                                        .into(),
+                                    );
+                                    self.ctx.types.resolve("Object").unwrap()
+                                } else {
+                                    id
+                                }
+                            }
                             None => {
                                 self.diagnostics.push(
                                     SemanticError::new(
@@ -339,7 +359,11 @@ impl SemanticAnalyzer {
                 let body_type = self.analyze_expr(body);
                 let expected_ret_id = match declared_ret_id {
                     Some(declared) => {
-                        if !self.ctx.types.is_subtype_of(body_type.ty, declared) {
+                        if !self
+                            .ctx
+                            .types
+                            .is_subtype_of(&self.ctx, body_type.ty, declared)
+                        {
                             self.diagnostics.push(
                                 SemanticError::new(
                                     SemanticErrorKind::MethodReturnTypeMismatch {
