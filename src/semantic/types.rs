@@ -109,11 +109,9 @@ impl TypeTable {
     pub fn insert_method(&mut self, id: TypeId, method: Symbol) -> bool {
         let info = &mut self.infos[id.0];
         let method_name = method.name.clone();
-        if info.methods.contains_key(&method_name) {
-            return false;
-        }
+        let already_existed = info.methods.contains_key(&method_name);
         info.methods.insert(method_name, method);
-        true
+        !already_existed
     }
 
     pub fn get_method(&self, type_id: TypeId, name: &str) -> Option<&Symbol> {
