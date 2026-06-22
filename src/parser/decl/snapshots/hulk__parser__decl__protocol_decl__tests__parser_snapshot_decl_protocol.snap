@@ -1,0 +1,25 @@
+---
+source: src/parser/decl/protocol_decl.rs
+expression: ast
+---
+node:
+  Protocol:
+    name: I
+    parents:
+      - P1
+      - P2
+    methods:
+      - node:
+          name: m3
+          params:
+            - - a
+              - King
+            - - b
+              - Pawn
+          return_type: Piece
+        span:
+          start: 34
+          end: 62
+span:
+  start: 1
+  end: 64
