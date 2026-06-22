@@ -160,7 +160,11 @@ impl SemanticAnalyzer {
                 Some(declared) => {
                     let typed_default = default.as_ref().map(|init_expr| {
                         let inferred_type = self.analyze_expr(init_expr);
-                        if !self.ctx.types.is_subtype_of(inferred_type.ty, declared) {
+                        if !self
+                            .ctx
+                            .types
+                            .is_subtype_of(&self.ctx, inferred_type.ty, declared)
+                        {
                             self.diagnostics.push(
                                 SemanticError::new(
                                     SemanticErrorKind::AttributeTypeMismatch {
@@ -256,20 +260,36 @@ impl SemanticAnalyzer {
             let mut typed_method_params = Vec::new();
             for (p_name, p_type_opt) in method_params {
                 let p_type_id = match p_type_opt {
-                    Some(t_name) => self.ctx.types.resolve(t_name).unwrap_or_else(|| {
-                        self.diagnostics.push(
-                            SemanticError::new(
-                                SemanticErrorKind::UnknownTypeInMethodParameter {
-                                    method: method_name.to_string(),
-                                    param: p_name.to_string(),
-                                    type_name: t_name.to_string(),
-                                },
-                                feature.span,
-                            )
-                            .into(),
-                        );
-                        object_type
-                    }),
+                    Some(t_name) => match self.ctx.types.resolve(t_name) {
+                        Some(id) if self.ctx.types.get(id).is_protocol() => {
+                            self.diagnostics.push(
+                                SemanticError::new(
+                                    SemanticErrorKind::ProtocolNotAllowedAsParameterType {
+                                        type_name: t_name.to_string(),
+                                        param_name: p_name.to_string(),
+                                    },
+                                    feature.span,
+                                )
+                                .into(),
+                            );
+                            object_type
+                        }
+                        Some(id) => id,
+                        None => {
+                            self.diagnostics.push(
+                                SemanticError::new(
+                                    SemanticErrorKind::UnknownTypeInMethodParameter {
+                                        method: method_name.to_string(),
+                                        param: p_name.to_string(),
+                                        type_name: t_name.to_string(),
+                                    },
+                                    feature.span,
+                                )
+                                .into(),
+                            );
+                            object_type
+                        }
+                    },
                     None => object_type,
                 };
                 self.ctx.declare(Symbol {
@@ -317,7 +337,11 @@ impl SemanticAnalyzer {
             let body_type = self.analyze_expr(method_body(feature));
             let expected_ret_id = match declared_ret_id {
                 Some(declared) => {
-                    if !self.ctx.types.is_subtype_of(body_type.ty, declared) {
+                    if !self
+                        .ctx
+                        .types
+                        .is_subtype_of(&self.ctx, body_type.ty, declared)
+                    {
                         self.diagnostics.push(
                             SemanticError::new(
                                 SemanticErrorKind::MethodReturnTypeMismatch {
@@ -464,7 +488,7 @@ impl SemanticAnalyzer {
                     if !self
                         .ctx
                         .types
-                        .is_subtype_of(arg_expr_type.ty, expected_type_id)
+                        .is_subtype_of(&self.ctx, arg_expr_type.ty, expected_type_id)
                     {
                         self.diagnostics.push(
                             SemanticError::new(
