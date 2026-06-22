@@ -41,6 +41,8 @@ pub enum TokenKind {
     Is,
     #[token("as")]
     As,
+    #[token("interface")]
+    Interface,
     #[token("protocol")]
     Protocol,
     #[token("extends")]
