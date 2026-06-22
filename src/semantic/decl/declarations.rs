@@ -5,8 +5,15 @@ use crate::semantic::symbols::SymbolType;
 
 impl SemanticAnalyzer {
     pub fn analyze_declarations(&mut self, decls: &[Decl]) -> Option<Vec<TypedDecl>> {
-        self.register_signatures(decls);
+        let ok = self.register_signatures(decls);
+        if !ok {
+            return Some(vec![]);
+        }
         self.check_circular_inheritance(decls);
+        let ok = self.check_circular_protocols_extension(decls);
+        if ok {
+            self.collect_extended_methods(decls);
+        }
         self.resolve_constructor_signatures();
         let mut typed_decls = Vec::new();
         for decl in decls {
@@ -31,6 +38,7 @@ impl SemanticAnalyzer {
                     }
                     typed_decls.push(self.analyze_type(decl));
                 }
+                _ => continue
             }
         }
         (!typed_decls.is_empty()).then_some(typed_decls)

@@ -54,6 +54,24 @@ impl SemanticAnalyzer {
                         );
                     }
                 }
+                DeclKind::Protocol { name, .. } => {
+                    let ok = self
+                        .ctx
+                        .types
+                        .insert_protocol_placeholder(name.clone())
+                        .is_some();
+                    if !ok {
+                        self.diagnostics.push(
+                            SemanticError::new(
+                                SemanticErrorKind::DuplicateProtocol {
+                                    protocol_name: name.clone(),
+                                },
+                                decl.span,
+                            )
+                            .into(),
+                        );
+                    }
+                }
             }
         }
     }

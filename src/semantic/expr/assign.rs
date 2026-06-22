@@ -37,7 +37,7 @@ impl SemanticAnalyzer {
             }
         };
 
-        if !self.ctx.types.is_subtype_of(value_type.ty, target_type) {
+        if !self.ctx.types.is_subtype_of(&self.ctx, value_type.ty, target_type) {
             self.diagnostics.push(
                 SemanticError::new(
                     SemanticErrorKind::TypeMismatch {

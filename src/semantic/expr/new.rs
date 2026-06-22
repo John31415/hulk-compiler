@@ -58,7 +58,7 @@ impl SemanticAnalyzer {
                 let expected_type = param
                     .ty
                     .unwrap_or_else(|| self.ctx.types.resolve("Object").unwrap());
-                if !self.ctx.types.is_subtype_of(arg_type.ty, expected_type) {
+                if !self.ctx.types.is_subtype_of(&self.ctx, arg_type.ty, expected_type) {
                     self.diagnostics.push(
                         SemanticError::new(
                             SemanticErrorKind::ConstructorArgumentTypeMismatch {

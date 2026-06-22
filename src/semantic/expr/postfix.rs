@@ -96,7 +96,7 @@ impl SemanticAnalyzer {
                 let arg_type = self.analyze_expr(arg);
                 if i < param_types.len() {
                     let expected_type = param_types[i];
-                    if !self.ctx.types.is_subtype_of(arg_type.ty, expected_type) {
+                    if !self.ctx.types.is_subtype_of(&self.ctx, arg_type.ty, expected_type) {
                         self.diagnostics.push(
                             SemanticError::new(
                                 SemanticErrorKind::MethodArgumentTypeMismatch {

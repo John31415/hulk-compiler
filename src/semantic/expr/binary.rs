@@ -76,8 +76,8 @@ impl SemanticAnalyzer {
             }
 
             BinaryOpKind::DoubleEqual | BinaryOpKind::NotEqual => {
-                if !self.ctx.types.is_subtype_of(left_type.ty, right_type.ty)
-                    && !self.ctx.types.is_subtype_of(right_type.ty, left_type.ty)
+                if !self.ctx.types.is_subtype_of(&self.ctx, left_type.ty, right_type.ty)
+                    && !self.ctx.types.is_subtype_of(&self.ctx, right_type.ty, left_type.ty)
                 {
                     self.diagnostics.push(
                         SemanticError::new(
@@ -109,8 +109,8 @@ impl SemanticAnalyzer {
         let bool_type = self.resolve_builtin("Boolean");
         let resolved_target_type = match self.ctx.types.resolve(type_name) {
             Some(target_type) => {
-                if !self.ctx.types.is_subtype_of(expr_type.ty, target_type)
-                    && !self.ctx.types.is_subtype_of(target_type, expr_type.ty)
+                if !self.ctx.types.is_subtype_of(&self.ctx, expr_type.ty, target_type)
+                    && !self.ctx.types.is_subtype_of(&self.ctx, target_type, expr_type.ty)
                 {
                     self.diagnostics.push(
                         SemanticError::new(
@@ -152,8 +152,8 @@ impl SemanticAnalyzer {
         let expr_type = self.analyze_expr(expr);
         let resolved_target_type = match self.ctx.types.resolve(type_name) {
             Some(target_type) => {
-                if !self.ctx.types.is_subtype_of(expr_type.ty, target_type)
-                    && !self.ctx.types.is_subtype_of(target_type, expr_type.ty)
+                if !self.ctx.types.is_subtype_of(&self.ctx, expr_type.ty, target_type)
+                    && !self.ctx.types.is_subtype_of(&self.ctx, target_type, expr_type.ty)
                 {
                     self.diagnostics.push(
                         SemanticError::new(

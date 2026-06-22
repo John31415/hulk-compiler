@@ -179,7 +179,11 @@ impl SemanticAnalyzer {
             let arg_type = self.analyze_expr(arg);
             if i < param_types.len() {
                 let expected_type = param_types[i];
-                if !self.ctx.types.is_subtype_of(arg_type.ty, expected_type) {
+                if !self
+                    .ctx
+                    .types
+                    .is_subtype_of(&self.ctx, arg_type.ty, expected_type)
+                {
                     self.diagnostics.push(
                         SemanticError::new(
                             SemanticErrorKind::FunctionArgumentTypeMismatch {
@@ -234,7 +238,11 @@ impl SemanticAnalyzer {
             let declared = param_types_decl.get(i).copied().flatten();
             match declared {
                 Some(expected_type) => {
-                    if !self.ctx.types.is_subtype_of(arg_type.ty, expected_type) {
+                    if !self
+                        .ctx
+                        .types
+                        .is_subtype_of(&self.ctx, arg_type.ty, expected_type)
+                    {
                         self.diagnostics.push(
                             SemanticError::new(
                                 SemanticErrorKind::FunctionArgumentTypeMismatch {
@@ -308,7 +316,7 @@ impl SemanticAnalyzer {
             }
         };
         let current_method_name = match &self.ctx.current_method {
-            Some(m) => m,
+            Some(m) => m.clone(),
             None => {
                 self.diagnostics
                     .push(SemanticError::new(SemanticErrorKind::InvalidBaseUsage, span).into());
@@ -322,13 +330,11 @@ impl SemanticAnalyzer {
                 );
             }
         };
-        if !args.is_empty() {
-            self.diagnostics
-                .push(SemanticError::new(SemanticErrorKind::BaseTakesNoArguments, span).into());
-        }
-        let type_id = match self.find_closest_ancestor_method(current_type_id, current_method_name)
-        {
-            Some(ancestor_return_type) => ancestor_return_type,
+        let (param_types, return_type) = match self.find_closest_ancestor_method_signature(
+            current_type_id,
+            &current_method_name.to_string(),
+        ) {
+            Some((params, ret)) => (params.clone(), ret.clone()),
             None => {
                 self.diagnostics.push(
                     SemanticError::new(
@@ -340,28 +346,76 @@ impl SemanticAnalyzer {
                     )
                     .into(),
                 );
-                self.ctx.types.resolve("Object").unwrap()
+                return TypedExpr::new(
+                    TypedExprKind::Call {
+                        name: name.into(),
+                        args: vec![],
+                    },
+                    object_type,
+                    span,
+                );
             }
         };
+        if args.len() != param_types.len() {
+            self.diagnostics.push(
+                SemanticError::new(
+                    SemanticErrorKind::InvalidMethodArity {
+                        method: current_method_name.clone(),
+                        expected: param_types.len(),
+                        found: args.len(),
+                    },
+                    span,
+                )
+                .into(),
+            );
+        }
+        let mut typed_args = Vec::new();
+        for (i, arg) in args.iter().enumerate() {
+            let arg_type = self.analyze_expr(arg);
+            if i < param_types.len() {
+                let expected_type = param_types[i];
+                if !self
+                    .ctx
+                    .types
+                    .is_subtype_of(&self.ctx, arg_type.ty, expected_type)
+                {
+                    self.diagnostics.push(
+                        SemanticError::new(
+                            SemanticErrorKind::FunctionArgumentTypeMismatch {
+                                name: current_method_name.clone(),
+                                index: i + 1,
+                                expected: self.ctx.types.get(expected_type).name.clone(),
+                                found: self.ctx.types.get(arg_type.ty).name.clone(),
+                            },
+                            span,
+                        )
+                        .into(),
+                    );
+                }
+            }
+            typed_args.push(arg_type);
+        }
         TypedExpr::new(
             TypedExprKind::Call {
                 name: name.into(),
-                args: vec![],
+                args: typed_args,
             },
-            type_id,
+            return_type,
             span,
         )
     }
 
-    fn find_closest_ancestor_method(&self, type_id: TypeId, method_name: &str) -> Option<TypeId> {
+    fn find_closest_ancestor_method_signature(
+        &self,
+        type_id: TypeId,
+        method_name: &str,
+    ) -> Option<(Vec<TypeId>, TypeId)> // (params, return_type)
+    {
         let mut current_id = type_id;
         while let Some(parent_id) = self.ctx.types.get_parent(current_id) {
-            if let Some(return_type_id) = self
-                .ctx
-                .types
-                .get_method_return_type(parent_id, method_name)
-            {
-                return Some(return_type_id);
+            // Usar lookup_method en el padre
+            if let Some((params, ret)) = self.ctx.types.lookup_method(parent_id, method_name) {
+                return Some((params, ret));
             }
             current_id = parent_id;
         }
@@ -380,7 +434,7 @@ enum CallResolution {
 
 #[cfg(test)]
 mod tests {
-    use crate::semantic::{error::SemanticErrorKind, test_utils::parse_program, SemanticAnalyzer};
+    use crate::semantic::{SemanticAnalyzer, error::SemanticErrorKind, test_utils::parse_program};
 
     #[test]
     fn semantic_unit_test_call_function_err() {
@@ -531,7 +585,11 @@ type B inherits A {
         );
         assert_eq!(
             analyzer.diagnostics[1].kind,
-            SemanticErrorKind::BaseTakesNoArguments
+            SemanticErrorKind::InvalidMethodArity {
+                method: "f".to_string(),
+                expected: 0,
+                found: 1
+            }
         );
         assert_eq!(
             analyzer.diagnostics[2].kind,

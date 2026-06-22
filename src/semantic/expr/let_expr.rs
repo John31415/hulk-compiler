@@ -18,7 +18,7 @@ impl SemanticAnalyzer {
         let var_type = match type_name {
             Some(t_name) => match self.ctx.types.resolve(t_name) {
                 Some(id) => {
-                    if !self.ctx.types.is_subtype_of(value_type.ty, id) {
+                    if !self.ctx.types.is_subtype_of(&self.ctx, value_type.ty, id) {
                         self.diagnostics.push(
                             SemanticError::new(
                                 SemanticErrorKind::LetBindingTypeMismatch {
@@ -30,7 +30,11 @@ impl SemanticAnalyzer {
                             .into(),
                         );
                     }
-                    id
+                    if self.ctx.types.get(id).is_protocol() {
+                        value_type.ty
+                    } else {
+                        id
+                    }
                 }
                 None => {
                     self.diagnostics.push(
@@ -106,5 +110,39 @@ mod tests {
                 name: "John".to_string()
             }
         );
+    }
+
+    #[test]
+    fn semantic_unit_test_let_protocol_compliance_ok() {
+        let source = r#"
+protocol P2 {
+    y(): Person;
+}
+protocol P1 {
+    x(): String;
+}
+protocol P extends P1, P2 {
+    m(a: Number): Boolean;
+}
+type Person { }
+type A {
+    m(b: Number): Boolean => b == 1;
+    x(): String => "hi";
+    y(): Person => new Person();
+}
+
+{
+    let x: P = new A() in { x.m(1); };
+}
+    "#;
+        let program = parse_program(source);
+        let mut analyzer = SemanticAnalyzer::new();
+        let result = analyzer.analyze_program(program);
+        assert!(
+            analyzer.diagnostics.is_empty(),
+            "expected no diagnostics, got: {:?}",
+            analyzer.diagnostics
+        );
+        let _ = result.unwrap();
     }
 }
