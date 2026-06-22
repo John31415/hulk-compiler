@@ -42,6 +42,7 @@ pub enum DeclKind {
     Protocol {
         name: String,
         methods: Vec<ProtocolMethods>,
+        parents: Vec<String>,
     },
 }
 
