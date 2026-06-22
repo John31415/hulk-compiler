@@ -39,6 +39,10 @@ pub enum DeclKind {
         parent: Option<InheritInfo>,
         features: Vec<TypeFeatures>,
     },
+    Protocol {
+        name: String,
+        methods: Vec<ProtocolMethods>,
+    },
 }
 
 pub type Expr = Spanned<ExprKind>;
@@ -106,6 +110,15 @@ pub enum ExprKind {
         target: Box<Expr>,
         value: Box<Expr>,
     },
+}
+
+pub type ProtocolMethods = Spanned<ProtocolMethodsKind>;
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ProtocolMethodsKind {
+    pub name: String,
+    pub params: Vec<(String, String)>,
+    pub return_type: String,
 }
 
 pub type TypeFeatures = Spanned<TypeFeaturesKind>;
