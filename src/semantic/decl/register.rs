@@ -1,12 +1,12 @@
-use crate::ast::TypeFeaturesKind;
 use crate::ast::{Decl, DeclKind};
+use crate::ast::{ProtocolMethodsKind, TypeFeaturesKind};
 use crate::semantic::SemanticAnalyzer;
 use crate::semantic::error::{SemanticError, SemanticErrorKind};
 use crate::semantic::symbols::{Symbol, SymbolKind, SymbolType};
 use crate::semantic::types::ConstructorParam;
 
 impl SemanticAnalyzer {
-    pub fn register_signatures(&mut self, decls: &[Decl]) {
+    pub fn register_signatures(&mut self, decls: &[Decl]) -> bool {
         for decl in decls {
             match &decl.node {
                 DeclKind::Function {
@@ -145,8 +145,83 @@ impl SemanticAnalyzer {
                         }
                     }
                 }
+                DeclKind::Protocol {
+                    name,
+                    parents,
+                    methods,
+                } => {
+                    let protocol_id = self.ctx.types.resolve(name).unwrap();
+                    let mut parent_ids = Vec::new();
+                    if let Some(parent_names) = parents {
+                        for pname in parent_names {
+                            match self.ctx.types.resolve(pname) {
+                                Some(pid) if self.ctx.types.get(pid).is_protocol() => {
+                                    parent_ids.push(pid);
+                                }
+                                _ => {
+                                    self.diagnostics.push(SemanticError::new(
+                                        SemanticErrorKind::ProtocolExtendsNonProtocol {
+                                            protocol_name: name.clone(),
+                                            non_protocol_name: pname.clone(),
+                                        },
+                                        decl.span,
+                                    ));
+                                    return false;
+                                }
+                            }
+                        }
+                    }
+                    for method in methods {
+                        let ProtocolMethodsKind {
+                            name,
+                            params,
+                            return_type,
+                        } = &method.node;
+                        let mut p_types = Vec::new();
+                        for (_, type_name) in params {
+                            let p_id = match self.ctx.types.resolve(type_name) {
+                                Some(id) => id,
+                                None => {
+                                    self.diagnostics.push(SemanticError::new(
+                                        SemanticErrorKind::UnknownType {
+                                            name: type_name.clone(),
+                                        },
+                                        method.span,
+                                    ));
+                                    continue;
+                                }
+                            };
+                            p_types.push(p_id);
+                        }
+                        let r_id = match self.ctx.types.resolve(return_type) {
+                            Some(id) => id,
+                            None => {
+                                self.diagnostics.push(SemanticError::new(
+                                    SemanticErrorKind::UnknownType {
+                                        name: return_type.clone(),
+                                    },
+                                    method.span,
+                                ));
+                                continue;
+                            }
+                        };
+                        self.ctx.types.insert_method(
+                            protocol_id,
+                            Symbol {
+                                name: name.clone(),
+                                kind: SymbolKind::Function,
+                                ty: SymbolType::Function {
+                                    params: p_types,
+                                    ret: r_id,
+                                },
+                                span: method.span,
+                            },
+                        );
+                    }
+                }
             }
         }
+        return true;
     }
 }
 
