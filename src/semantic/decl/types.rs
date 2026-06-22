@@ -8,7 +8,6 @@ use crate::semantic::hir::{
     TypedTypeFeature, TypedTypeFeatureKind,
 };
 use crate::semantic::symbols::{Symbol, SymbolKind, SymbolType};
-use crate::semantic::types::TypeId;
 
 impl SemanticAnalyzer {
     pub fn analyze_type(&mut self, type_decl: &Decl) -> TypedDecl {
@@ -91,12 +90,6 @@ impl SemanticAnalyzer {
                         .get_constructor_params(parent_type_id)
                         .to_vec();
                     if let Some(actual_args) = &inherit_info.node.args {
-                        // let actual_args = inherit_info
-                        //     .node
-                        //     .args
-                        //     .as_ref()
-                        //     .map(|v| v.as_slice())
-                        //     .unwrap_or_default();
                         if actual_args.len() != expected_parent_params.len() {
                             self.diagnostics.push(
                                 SemanticError::new(
@@ -311,59 +304,109 @@ impl SemanticAnalyzer {
                     );
                     typed_params.push(typed_param);
                 }
-                let expected_ret_id = match return_type {
-                    Some(t_name) => match self.ctx.types.resolve(t_name) {
-                        Some(id) => id,
-                        None => {
-                            self.diagnostics.push(
-                                SemanticError::new(
-                                    SemanticErrorKind::UnknownReturnTypeInMethod {
-                                        method: method_name.to_string(),
-                                        type_name: t_name.to_string(),
-                                    },
-                                    feature.span,
-                                )
-                                .into(),
-                            );
-                            object_type
-                        }
-                    },
-                    None => object_type,
+                let declared_ret_id = match return_type {
+                    Some(t_name) => Some(self.ctx.types.resolve(t_name).unwrap_or_else(|| {
+                        self.diagnostics.push(
+                            SemanticError::new(
+                                SemanticErrorKind::UnknownReturnTypeInMethod {
+                                    method: method_name.to_string(),
+                                    type_name: t_name.to_string(),
+                                },
+                                feature.span,
+                            )
+                            .into(),
+                        );
+                        object_type
+                    })),
+                    None => None,
                 };
                 if let Some(parent_info) = parent {
                     if let Some(parent_id) = self.ctx.types.resolve(&parent_info.node.parent_name) {
                         if let Some(parent_method) =
                             self.ctx.types.get_method(parent_id, method_name).cloned()
                         {
-                            self.validate_method_override(
+                            self.validate_method_override_arity_and_params(
                                 method_name,
                                 method_params,
-                                expected_ret_id,
                                 &parent_method.ty,
                                 type_decl.span,
                             );
                         }
                     }
                 }
-                self.ctx.current_function_return = Some(expected_ret_id);
+                self.ctx.current_function_return = declared_ret_id;
                 self.ctx.current_method = Some(method_name.clone());
                 let body_type = self.analyze_expr(body);
-                if !self.ctx.types.is_subtype_of(body_type.ty, expected_ret_id) {
-                    self.diagnostics.push(
-                        SemanticError::new(
-                            SemanticErrorKind::MethodReturnTypeMismatch {
-                                method: method_name.to_string(),
-                                expected: self.ctx.types.get(expected_ret_id).name.clone(),
-                                found: self.ctx.types.get(body_type.ty).name.clone(),
-                            },
-                            body.span,
-                        )
-                        .into(),
-                    );
+                let expected_ret_id = match declared_ret_id {
+                    Some(declared) => {
+                        if !self.ctx.types.is_subtype_of(body_type.ty, declared) {
+                            self.diagnostics.push(
+                                SemanticError::new(
+                                    SemanticErrorKind::MethodReturnTypeMismatch {
+                                        method: method_name.to_string(),
+                                        expected: self.ctx.types.get(declared).name.clone(),
+                                        found: self.ctx.types.get(body_type.ty).name.clone(),
+                                    },
+                                    body.span,
+                                )
+                                .into(),
+                            );
+                        }
+                        declared
+                    }
+                    None => body_type.ty,
+                };
+                if let Some(parent_info) = parent {
+                    if let Some(parent_id) = self.ctx.types.resolve(&parent_info.node.parent_name) {
+                        if let Some(parent_method) =
+                            self.ctx.types.get_method(parent_id, method_name).cloned()
+                        {
+                            if let SymbolType::Function {
+                                ret: parent_ret, ..
+                            } = &parent_method.ty
+                            {
+                                if expected_ret_id != *parent_ret {
+                                    self.diagnostics.push(
+                                        SemanticError::new(
+                                            SemanticErrorKind::InvalidOverrideReturnType {
+                                                method: method_name.to_string(),
+                                                found: self
+                                                    .ctx
+                                                    .types
+                                                    .get(expected_ret_id)
+                                                    .name
+                                                    .clone(),
+                                                expected: self
+                                                    .ctx
+                                                    .types
+                                                    .get(*parent_ret)
+                                                    .name
+                                                    .clone(),
+                                            },
+                                            type_decl.span,
+                                        )
+                                        .into(),
+                                    );
+                                }
+                            }
+                        }
+                    }
                 }
                 self.ctx.current_function_return = None;
                 self.ctx.current_method = None;
                 self.ctx.pop_scope();
+                self.ctx.types.insert_method(
+                    current_type_id,
+                    Symbol {
+                        name: method_name.clone(),
+                        kind: SymbolKind::Function,
+                        ty: SymbolType::Function {
+                            params: typed_params.iter().map(|p| p.node.type_id).collect(),
+                            ret: expected_ret_id,
+                        },
+                        span: feature.span,
+                    },
+                );
                 let typed_feature = TypedTypeFeature::new(
                     TypedTypeFeatureKind::Method {
                         name: method_name.clone(),
@@ -390,17 +433,16 @@ impl SemanticAnalyzer {
         )
     }
 
-    pub fn validate_method_override(
+    pub fn validate_method_override_arity_and_params(
         &mut self,
         method_name: &str,
         current_params: &[(String, Option<String>)],
-        current_ret: TypeId,
         parent_method_sig: &SymbolType,
         span: Span,
     ) {
         if let SymbolType::Function {
             params: parent_params,
-            ret: parent_ret,
+            ..
         } = parent_method_sig
         {
             if current_params.len() != parent_params.len() {
@@ -416,20 +458,10 @@ impl SemanticAnalyzer {
                     .into(),
                 );
             }
-            if current_ret != *parent_ret {
-                self.diagnostics.push(
-                    SemanticError::new(
-                        SemanticErrorKind::InvalidOverrideReturnType {
-                            method: method_name.to_string(),
-                            found: self.ctx.types.get(current_ret).name.clone(),
-                            expected: self.ctx.types.get(*parent_ret).name.clone(),
-                        },
-                        span,
-                    )
-                    .into(),
-                );
-            }
             for (i, (p_name, p_type_opt)) in current_params.iter().enumerate() {
+                if i >= parent_params.len() {
+                    break;
+                }
                 let current_p_id = p_type_opt
                     .as_ref()
                     .and_then(|t| self.ctx.types.resolve(t))

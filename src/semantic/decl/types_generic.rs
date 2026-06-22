@@ -1,5 +1,6 @@
 use crate::ast::DeclKind;
 use crate::lexer::span::Span;
+use crate::semantic::SemanticAnalyzer;
 use crate::semantic::context::GenericInstanceKey;
 use crate::semantic::error::{SemanticError, SemanticErrorKind};
 use crate::semantic::hir::{
@@ -8,7 +9,6 @@ use crate::semantic::hir::{
 };
 use crate::semantic::symbols::{Symbol, SymbolKind, SymbolType};
 use crate::semantic::types::{ConstructorParam, TypeId};
-use crate::semantic::SemanticAnalyzer;
 
 impl SemanticAnalyzer {
     pub fn instantiate_generic_type(
@@ -437,7 +437,6 @@ impl SemanticAnalyzer {
             .as_ref()
             .map(|v| v.as_slice())
             .unwrap_or_default();
-
         if !self.ctx.types.is_generic_template(parent_molde_id) {
             let expected_parent_params = self
                 .ctx
@@ -567,57 +566,6 @@ impl SemanticAnalyzer {
             },
             inherit_info.span,
         ))
-    }
-
-    fn validate_method_override_arity_and_params(
-        &mut self,
-        method_name: &str,
-        current_params: &[(String, Option<String>)],
-        parent_method_sig: &SymbolType,
-        span: Span,
-    ) {
-        if let SymbolType::Function {
-            params: parent_params,
-            ..
-        } = parent_method_sig
-        {
-            if current_params.len() != parent_params.len() {
-                self.diagnostics.push(
-                    SemanticError::new(
-                        SemanticErrorKind::InvalidOverrideArity {
-                            method: method_name.to_string(),
-                            found: current_params.len(),
-                            expected: parent_params.len(),
-                        },
-                        span,
-                    )
-                    .into(),
-                );
-            }
-            for (i, (p_name, p_type_opt)) in current_params.iter().enumerate() {
-                if i >= parent_params.len() {
-                    break;
-                }
-                let current_p_id = p_type_opt
-                    .as_ref()
-                    .and_then(|t| self.ctx.types.resolve(t))
-                    .unwrap_or_else(|| self.ctx.types.resolve("Object").unwrap());
-                if current_p_id != parent_params[i] {
-                    self.diagnostics.push(
-                        SemanticError::new(
-                            SemanticErrorKind::InvalidOverrideParameterType {
-                                method: method_name.to_string(),
-                                param_name: p_name.to_string(),
-                                found: self.ctx.types.get(current_p_id).name.clone(),
-                                expected: self.ctx.types.get(parent_params[i]).name.clone(),
-                            },
-                            span,
-                        )
-                        .into(),
-                    );
-                }
-            }
-        }
     }
 }
 
