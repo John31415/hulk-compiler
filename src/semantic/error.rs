@@ -69,7 +69,6 @@ pub enum SemanticErrorKind {
         found: String,
     },
     InvalidBaseUsage,
-    BaseTakesNoArguments,
     UndefinedBaseMethod {
         type_name: String,
         method: String,
@@ -216,6 +215,24 @@ pub enum SemanticErrorKind {
         method: String,
         type_name: String,
     },
+    DuplicateProtocol {
+        protocol_name: String,
+    },
+    ProtocolExtendsNonProtocol {
+        protocol_name: String,
+        non_protocol_name: String,
+    },
+    ProtocolMethodCollision {
+        protocol_name: String,
+        method_name: String,
+    },
+    CyclicProtocolExtension {
+        protocol_name: String,
+    },
+    ProtocolNotAllowedAsParameterType {
+        type_name: String,
+        param_name: String,
+    },
 }
 
 impl SemanticErrorKind {
@@ -302,7 +319,6 @@ impl SemanticErrorKind {
                 )
             }
             Self::InvalidBaseUsage => "base() can only be used inside a type method".to_string(),
-            Self::BaseTakesNoArguments => "base() does not take explicit arguments".to_string(),
             Self::UndefinedBaseMethod { type_name, method } => {
                 format!(
                     "no ancestor of type '{}' implements the method '{}'",
@@ -571,6 +587,39 @@ impl SemanticErrorKind {
                 format!(
                     "method '{}' in type '{}' has unannotated parameters and cannot override a method with a fixed signature in an ancestor type: generic methods cannot participate in virtual dispatch",
                     method, type_name
+                )
+            }
+            Self::DuplicateProtocol { protocol_name } => {
+                format!("duplicate protocol '{}'", protocol_name)
+            }
+            Self::ProtocolExtendsNonProtocol {
+                protocol_name,
+                non_protocol_name,
+            } => {
+                format!("{} cannot extends {}", non_protocol_name, protocol_name)
+            }
+            Self::ProtocolMethodCollision {
+                protocol_name,
+                method_name,
+            } => {
+                format!(
+                    "method {} of {} collides with another protocol",
+                    method_name, protocol_name
+                )
+            }
+            Self::CyclicProtocolExtension { protocol_name } => {
+                format!(
+                    "cyclic protocol extension detected at protocol '{}'",
+                    protocol_name
+                )
+            }
+            Self::ProtocolNotAllowedAsParameterType {
+                type_name,
+                param_name,
+            } => {
+                format!(
+                    "Protocol type '{}' cannot be used as a parameter type for parameter '{}'",
+                    type_name, param_name
                 )
             }
         }
