@@ -212,12 +212,19 @@ impl SemanticAnalyzer {
 
     fn analyze_generic_call(&mut self, name: &str, args: &[Expr], span: Span) -> TypedExpr {
         let object_type = self.resolve_builtin("Object");
-        let (param_types_decl, declared_arity) = match self.ctx.lookup(name).map(|s| &s.ty) {
-            Some(SymbolType::GenericFunction { param_types, .. }) => {
-                (param_types.clone(), param_types.len())
-            }
-            _ => unreachable!("analyze_generic_call called for a non-generic symbol"),
-        };
+        let (param_types_decl, param_constraints_decl, declared_arity) =
+            match self.ctx.lookup(name).map(|s| &s.ty) {
+                Some(SymbolType::GenericFunction {
+                    param_types,
+                    param_protocol_constraints,
+                    ..
+                }) => (
+                    param_types.clone(),
+                    param_protocol_constraints.clone(),
+                    param_types.len(),
+                ),
+                _ => unreachable!("analyze_generic_call called for a non-generic symbol"),
+            };
         if args.len() != declared_arity {
             self.diagnostics.push(
                 SemanticError::new(
@@ -259,6 +266,26 @@ impl SemanticAnalyzer {
                     instance_key_types.push(expected_type);
                 }
                 None => {
+                    if let Some(protocol_id) = param_constraints_decl.get(i).copied().flatten() {
+                        if !self
+                            .ctx
+                            .types
+                            .is_subtype_of(&self.ctx, arg_type.ty, protocol_id)
+                        {
+                            self.diagnostics.push(
+                                SemanticError::new(
+                                    SemanticErrorKind::FunctionArgumentTypeMismatch {
+                                        name: name.to_string(),
+                                        index: i + 1,
+                                        expected: self.ctx.types.get(protocol_id).name.clone(),
+                                        found: self.ctx.types.get(arg_type.ty).name.clone(),
+                                    },
+                                    arg.span,
+                                )
+                                .into(),
+                            );
+                        }
+                    }
                     instance_key_types.push(arg_type.ty);
                 }
             }
