@@ -20,26 +20,34 @@ impl SemanticAnalyzer {
                         Option<crate::semantic::types::TypeId>,
                     > = Vec::new();
                     let mut any_param_generic = false;
-                    for (_, param_type_opt) in params {
+                    for (param_name, param_type_opt) in params {
                         match param_type_opt {
-                            Some(type_name) => {
-                                let resolved = self.ctx.types.resolve(type_name);
-                                let is_protocol = resolved
-                                    .map(|id| self.ctx.types.get(id).is_protocol())
-                                    .unwrap_or(false);
-                                if is_protocol {
+                            Some(type_name) => match self.ctx.types.resolve(type_name) {
+                                Some(id) if self.ctx.types.get(id).is_protocol() => {
                                     any_param_generic = true;
                                     param_types.push(None);
-                                    param_protocol_constraints.push(resolved);
-                                } else if resolved.is_none() {
-                                    any_param_generic = true;
-                                    param_types.push(None);
-                                    param_protocol_constraints.push(None);
-                                } else {
-                                    param_types.push(resolved);
+                                    param_protocol_constraints.push(Some(id));
+                                }
+                                Some(id) => {
+                                    param_types.push(Some(id));
                                     param_protocol_constraints.push(None);
                                 }
-                            }
+                                None => {
+                                    self.diagnostics.push(
+                                        SemanticError::new(
+                                            SemanticErrorKind::UnknownTypeInParameter {
+                                                type_name: type_name.to_string(),
+                                                param_name: param_name.to_string(),
+                                            },
+                                            decl.span,
+                                        )
+                                        .into(),
+                                    );
+                                    param_types
+                                        .push(Some(self.ctx.types.resolve("Object").unwrap()));
+                                    param_protocol_constraints.push(None);
+                                }
+                            },
                             None => {
                                 any_param_generic = true;
                                 param_types.push(None);
