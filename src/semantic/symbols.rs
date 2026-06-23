@@ -20,6 +20,7 @@ pub enum SymbolType {
     },
     GenericFunction {
         param_types: Vec<Option<TypeId>>,
+        param_protocol_constraints: Vec<Option<TypeId>>,
         ret_type: Option<TypeId>,
     },
 }

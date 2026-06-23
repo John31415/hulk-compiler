@@ -3,7 +3,7 @@ use crate::ast::{ProtocolMethodsKind, TypeFeaturesKind};
 use crate::semantic::SemanticAnalyzer;
 use crate::semantic::error::{SemanticError, SemanticErrorKind};
 use crate::semantic::symbols::{Symbol, SymbolKind, SymbolType};
-use crate::semantic::types::{ConstructorParam, TypeId};
+use crate::semantic::types::ConstructorParam;
 
 impl SemanticAnalyzer {
     pub fn register_signatures(&mut self, decls: &[Decl]) -> bool {
@@ -15,54 +15,46 @@ impl SemanticAnalyzer {
                     return_type,
                     ..
                 } => {
-                    let mut param_types: Vec<Option<TypeId>> = Vec::new();
+                    let mut param_types: Vec<Option<crate::semantic::types::TypeId>> = Vec::new();
+                    let mut param_protocol_constraints: Vec<
+                        Option<crate::semantic::types::TypeId>,
+                    > = Vec::new();
                     let mut any_param_generic = false;
-                    let mut err = false;
                     for (_, param_type_opt) in params {
                         match param_type_opt {
                             Some(type_name) => {
                                 let resolved = self.ctx.types.resolve(type_name);
-                                if resolved.is_none() {
-                                    self.diagnostics.push(SemanticError::new(
-                                        SemanticErrorKind::UnknownType {
-                                            name: type_name.clone(),
-                                        },
-                                        decl.span,
-                                    ));
-                                    err = true;
-                                    continue;
+                                let is_protocol = resolved
+                                    .map(|id| self.ctx.types.get(id).is_protocol())
+                                    .unwrap_or(false);
+                                if is_protocol {
+                                    any_param_generic = true;
+                                    param_types.push(None);
+                                    param_protocol_constraints.push(resolved);
+                                } else if resolved.is_none() {
+                                    any_param_generic = true;
+                                    param_types.push(None);
+                                    param_protocol_constraints.push(None);
+                                } else {
+                                    param_types.push(resolved);
+                                    param_protocol_constraints.push(None);
                                 }
-                                param_types.push(resolved);
                             }
                             None => {
                                 any_param_generic = true;
                                 param_types.push(None);
+                                param_protocol_constraints.push(None);
                             }
                         }
                     }
-                    if err {
-                        continue;
-                    }
-                    let ret_resolved = match return_type {
-                        Some(type_name) => {
-                            let resolved = self.ctx.types.resolve(type_name);
-                            if resolved.is_none() {
-                                self.diagnostics.push(SemanticError::new(
-                                    SemanticErrorKind::UnknownType {
-                                        name: type_name.clone(),
-                                    },
-                                    decl.span,
-                                ));
-                            }
-                            resolved
-                        }
-                        None => None,
-                    };
-                    let ret_is_generic = return_type.is_none();
+                    let ret_resolved = return_type.as_ref().and_then(|t| self.ctx.types.resolve(t));
+                    let ret_is_generic =
+                        return_type.is_some() && ret_resolved.is_none() || return_type.is_none();
                     let new_ty = if any_param_generic || ret_is_generic {
                         self.ctx.register_generic_decl(name.clone(), decl.clone());
                         SymbolType::GenericFunction {
                             param_types,
+                            param_protocol_constraints,
                             ret_type: ret_resolved,
                         }
                     } else {
