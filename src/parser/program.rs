@@ -1,9 +1,9 @@
-use crate::ast::{Program, ProgramKind, Spanned};
+use crate::ast::{ExprKind, Program, ProgramKind, Spanned};
 use crate::lexer::{Token, TokenKind};
 use crate::parser::decl::decl_parser;
 use crate::parser::expr::block::block_parser;
-use crate::parser::span_from_token_slice;
 use crate::parser::expr::expr_parser;
+use crate::parser::span_from_token_slice;
 use chumsky::{error::Rich, prelude::*};
 
 pub fn program_parser<'src>()
@@ -16,23 +16,27 @@ pub fn program_parser<'src>()
     };
     let expr = expr_parser().boxed();
     let block = block_parser(expr.clone());
+    let entry = choice((
+        block.then_ignore(semi.or_not()),
+        expr.clone().then_ignore(semi),
+    ))
+    .or_not();
     decl_parser(expr.clone())
         .repeated()
         .collect::<Vec<_>>()
         .or_not()
-        .then(choice((
-            block.then_ignore(semi.or_not()),
-            expr.clone().then_ignore(semi),
-        )))
+        .then(entry)
         .then_ignore(select_ref! {
             Token {
                 kind: TokenKind::EOF,
                 ..
             } => ()
         })
-        .map_with(|(decls, body), span| {
+        .map_with(|(decls, body_opt), span| {
             let span = span_from_token_slice(span.slice());
-            Spanned::new(ProgramKind { decls: decls, body }, span)
+            let body =
+                body_opt.unwrap_or_else(|| Spanned::new(ExprKind::Block(Vec::new()), span.clone()));
+            Spanned::new(ProgramKind { decls, body }, span)
         })
 }
 
