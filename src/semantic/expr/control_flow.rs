@@ -81,8 +81,35 @@ impl SemanticAnalyzer {
         body: &Expr,
         span: Span,
     ) -> TypedExpr {
-        let iterable_type = self.analyze_expr(iterable);
-        let loop_var_type = self.resolve_builtin("Object");
+        let object_type = self.resolve_builtin("Object");
+        let bool_type = self.resolve_builtin("Boolean");
+        let iterable_expr = self.analyze_expr(iterable);
+        let iterable_protocol = self
+            .ctx
+            .types
+            .resolve("Iterable")
+            .expect("'Iterable' protocol is missing from the type table.");
+        if !self
+            .ctx
+            .types
+            .is_subtype_of(&self.ctx, iterable_expr.ty, iterable_protocol)
+        {
+            self.diagnostics.push(
+                SemanticError::new(
+                    SemanticErrorKind::TypeMismatch {
+                        expected: self.ctx.types.get(iterable_protocol).name.clone(),
+                        found: self.ctx.types.get(iterable_expr.ty).name.clone(),
+                    },
+                    iterable.span,
+                )
+                .into(),
+            );
+        }
+        let (_, loop_var_type) = self
+            .ctx
+            .types
+            .lookup_method(iterable_expr.ty, "current")
+            .expect("'Iterable' subtype without current()");
         self.ctx.push_scope();
         self.ctx.declare(Symbol {
             name: var.to_string(),
@@ -91,15 +118,56 @@ impl SemanticAnalyzer {
             span,
         });
         let body_type = self.analyze_expr(body);
-        let type_id = body_type.ty;
+        let result_ty = body_type.ty;
         self.ctx.pop_scope();
-        TypedExpr::new(
-            TypedExprKind::For {
-                var: var.into(),
-                iterable: Box::new(iterable_type),
+        let iter_name = format!("__iter_{}_{}", span.start, span.end);
+        let iter_var_expr = TypedExpr::new(
+            TypedExprKind::Variable(iter_name.clone()),
+            iterable_expr.ty,
+            span,
+        );
+        let next_call = TypedExpr::new(
+            TypedExprKind::MethodCall {
+                obj: Box::new(iter_var_expr.clone()),
+                method: "next".to_string(),
+                args: vec![],
+            },
+            bool_type,
+            span,
+        );
+        let current_call = TypedExpr::new(
+            TypedExprKind::MethodCall {
+                obj: Box::new(iter_var_expr.clone()),
+                method: "current".to_string(),
+                args: vec![],
+            },
+            loop_var_type,
+            span,
+        );
+        let inner_let = TypedExpr::new(
+            TypedExprKind::Let {
+                name: var.to_string(),
+                value: Box::new(current_call),
                 body: Box::new(body_type),
             },
-            type_id,
+            result_ty,
+            span,
+        );
+        let while_expr = TypedExpr::new(
+            TypedExprKind::While {
+                condition: Box::new(next_call),
+                body: Box::new(inner_let),
+            },
+            object_type,
+            span,
+        );
+        TypedExpr::new(
+            TypedExprKind::Let {
+                name: iter_name,
+                value: Box::new(iterable_expr),
+                body: Box::new(while_expr),
+            },
+            object_type,
             span,
         )
     }

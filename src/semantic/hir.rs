@@ -132,11 +132,6 @@ pub enum TypedExprKind {
         condition: Box<TypedExpr>,
         body: Box<TypedExpr>,
     },
-    For {
-        var: String,
-        iterable: Box<TypedExpr>,
-        body: Box<TypedExpr>,
-    },
     Assign {
         target: Box<TypedExpr>,
         value: Box<TypedExpr>,

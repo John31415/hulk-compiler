@@ -132,14 +132,6 @@ impl<'ctx> Backend<'ctx> {
         Ok(final_val)
     }
 
-    pub fn compile_for(
-        &mut self,
-        _expr: &TypedExpr,
-        _sema: &SemanticAnalyzer,
-    ) -> BackendResult<BasicValueEnum<'ctx>> {
-        unimplemented!()
-    }
-
     fn get_default_value(&self, ty: TypeId) -> BasicValueEnum<'ctx> {
         match ty {
             TypeId(3) => {

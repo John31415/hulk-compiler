@@ -38,7 +38,6 @@ impl<'ctx> Backend<'ctx> {
             TypedExprKind::Let { .. } => self.compile_let(expr, sema),
             TypedExprKind::If { .. } => self.compile_if(expr, sema),
             TypedExprKind::While { .. } => self.compile_while(expr, sema),
-            TypedExprKind::For { .. } => self.compile_for(expr, sema),
             TypedExprKind::Assign { .. } => self.compile_assign(expr, sema),
             TypedExprKind::New { .. } => self.compile_new(expr, sema),
         }
