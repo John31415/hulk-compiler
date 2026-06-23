@@ -49,7 +49,7 @@ fn main() -> ExitCode {
         }
     };
 
-    let program = match program_parser().parse(&tokens.as_slice()).into_result() {
+    let mut program = match program_parser().parse(&tokens.as_slice()).into_result() {
         Ok(ast) => ast,
         Err(errors) => {
             for error in errors {
@@ -59,6 +59,45 @@ fn main() -> ExitCode {
             return ExitCode::from(EXIT_SYNTACTIC);
         }
     };
+
+    let prelude_path = "stdlib/prelude.hulk";
+    let prelude_source = match fs::read_to_string(prelude_path) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!(
+                "(0,0) SYNTACTIC: could not read prelude file '{}': {}",
+                prelude_path, e
+            );
+            return ExitCode::from(EXIT_SYNTACTIC);
+        }
+    };
+
+    let prelude_tokens = match Lexer::new(&prelude_source).tokenize() {
+        Ok(v) => v,
+        Err(_) => {
+            eprintln!("(0,0) LEXICAL: lexical error inside standard library prelude");
+            return ExitCode::from(EXIT_LEXICAL);
+        }
+    };
+
+    let prelude_program = match program_parser()
+        .parse(&prelude_tokens.as_slice())
+        .into_result()
+    {
+        Ok(ast) => ast,
+        Err(_) => {
+            eprintln!("(0,0) SYNTACTIC: syntactic error inside standard library prelude");
+            return ExitCode::from(EXIT_SYNTACTIC);
+        }
+    };
+
+    if let Some(prelude_decls) = prelude_program.node.decls {
+        program
+            .node
+            .decls
+            .get_or_insert_with(Vec::new)
+            .extend(prelude_decls);
+    }
 
     let mut analyzer = SemanticAnalyzer::new();
     let hir = match analyzer.analyze_program(program) {

@@ -446,7 +446,6 @@ impl SemanticAnalyzer {
                 typed_features.push(typed_feature);
             }
         }
-        self.ctx.pop_scope();
         self.ctx.current_type = None;
         TypedDecl::new(
             TypedDeclKind::Type {

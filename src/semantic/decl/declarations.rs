@@ -22,7 +22,7 @@ impl SemanticAnalyzer {
                     let is_generic = matches!(
                         self.ctx.lookup(name).map(|s| &s.ty),
                         Some(SymbolType::GenericFunction { .. })
-                    );
+                    ) || self.ctx.generic_decls.contains_key(name);
                     if is_generic {
                         continue;
                     }
@@ -38,7 +38,7 @@ impl SemanticAnalyzer {
                     }
                     typed_decls.push(self.analyze_type(decl));
                 }
-                _ => continue
+                _ => continue,
             }
         }
         (!typed_decls.is_empty()).then_some(typed_decls)
