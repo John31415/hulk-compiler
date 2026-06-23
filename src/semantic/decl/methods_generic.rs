@@ -1,10 +1,10 @@
 use crate::ast::{Expr, TypeFeaturesKind};
 use crate::lexer::span::Span;
+use crate::semantic::SemanticAnalyzer;
 use crate::semantic::error::{SemanticError, SemanticErrorKind};
 use crate::semantic::hir::{TypedDecl, TypedDeclKind, TypedParam, TypedParamKind};
 use crate::semantic::symbols::{Symbol, SymbolKind, SymbolType};
 use crate::semantic::types::TypeId;
-use crate::semantic::SemanticAnalyzer;
 
 impl SemanticAnalyzer {
     pub fn instantiate_generic_method(
@@ -98,7 +98,11 @@ impl SemanticAnalyzer {
         self.ctx.current_method = None;
         let final_return = match declared_return {
             Some(expected_return) => {
-                if !self.ctx.types.is_subtype_of(&self.ctx, body_type.ty, expected_return) {
+                if !self
+                    .ctx
+                    .types
+                    .is_subtype_of(&self.ctx, body_type.ty, expected_return)
+                {
                     self.diagnostics.push(
                         SemanticError::new(
                             SemanticErrorKind::MethodReturnTypeMismatch {
@@ -111,7 +115,11 @@ impl SemanticAnalyzer {
                         .into(),
                     );
                 }
-                expected_return
+                if self.ctx.types.get(expected_return).is_protocol() {
+                    body_type.ty
+                } else {
+                    expected_return
+                }
             }
             None => body_type.ty,
         };
