@@ -120,13 +120,27 @@ impl SemanticAnalyzer {
                 .into(),
             );
         }
+        let final_return_type = if self.ctx.types.get(expected_return).is_protocol() {
+            body_type.ty
+        } else {
+            expected_return
+        };
+        if self.ctx.types.get(expected_return).is_protocol() {
+            self.ctx.update_symbol_type(
+                name,
+                SymbolType::Function {
+                    params: typed_params.iter().map(|p| p.node.type_id).collect(),
+                    ret: final_return_type,
+                },
+            );
+        }
         self.ctx.current_function_return = None;
         self.ctx.pop_scope();
         TypedDecl::new(
             TypedDeclKind::Function {
                 name: name.clone(),
                 params: typed_params,
-                return_type: expected_return,
+                return_type: final_return_type,
                 body: body_type,
             },
             function_decl.span,
@@ -224,7 +238,11 @@ impl SemanticAnalyzer {
                         .into(),
                     );
                 }
-                expected_return
+                if self.ctx.types.get(expected_return).is_protocol() {
+                    body_type.ty
+                } else {
+                    expected_return
+                }
             }
             None => body_type.ty,
         };
