@@ -1,0 +1,13 @@
+protocol Iterable {
+    next() : Boolean;
+    current() : Object;
+}
+
+type Range(start: Number, end: Number) {
+    i: Number = start;
+    end: Number = end;
+    next(): Boolean => { self.i := self.i + 1; self.i <= self.end; };
+    current(): Number => self.i - 1;
+}
+
+function range(start: Number, end: Number) => new Range(start, end);
