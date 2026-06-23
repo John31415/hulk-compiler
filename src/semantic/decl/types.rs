@@ -33,7 +33,19 @@ impl SemanticAnalyzer {
             for (param_name, param_type_opt) in param_list {
                 let param_type_id = match param_type_opt {
                     Some(type_name) => match self.ctx.types.resolve(type_name) {
-                        Some(id) if self.ctx.types.get(id).is_protocol() => object_type,
+                        Some(id) if self.ctx.types.get(id).is_protocol() => {
+                            self.diagnostics.push(
+                                SemanticError::new(
+                                    SemanticErrorKind::ProtocolNotAllowedAsParameterType {
+                                        type_name: type_name.to_string(),
+                                        param_name: param_name.to_string(),
+                                    },
+                                    type_decl.span,
+                                )
+                                .into(),
+                            );
+                            object_type
+                        }
                         Some(id) => id,
                         None => {
                             self.diagnostics.push(
