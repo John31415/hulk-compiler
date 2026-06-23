@@ -29,7 +29,20 @@ pub fn expr_parser<'src>() -> impl Parser<'src, &'src [Token], Expr, extra::Err<
             select_ref! { Token { kind: TokenKind::RParen, .. } => () },
         );
         let block = block_parser(expr.clone());
-        let primary = choice((primary_parser(), paren_expr, block)).boxed();
+        let let_expr = let_expr_parser(expr.clone()).boxed();
+        let if_expr = if_expr_parser(expr.clone()).boxed();
+        let while_expr = while_expr_parser(expr.clone()).boxed();
+        let for_expr = for_expr_parser(expr.clone()).boxed();
+        let primary = choice((
+            primary_parser(),
+            paren_expr,
+            block,
+            let_expr,
+            if_expr,
+            while_expr,
+            for_expr,
+        ))
+        .boxed();
         let atom = choice((new_parser(expr.clone()).boxed(), primary)).boxed();
         let postfix = postfix_parser(expr.clone(), atom).boxed();
         let unary = unary_parser(postfix).boxed();
@@ -43,11 +56,7 @@ pub fn expr_parser<'src>() -> impl Parser<'src, &'src [Token], Expr, extra::Err<
         let logical_and = logical_and_parser(equality).boxed();
         let logical_or = logical_or_parser(logical_and).boxed();
         let assign = assign_parser(logical_or.clone()).boxed();
-        let let_expr = let_expr_parser(expr.clone()).boxed();
-        let if_expr = if_expr_parser(expr.clone()).boxed();
-        let while_expr = while_expr_parser(expr.clone()).boxed();
-        let for_expr = for_expr_parser(expr.clone()).boxed();
-        choice((let_expr, if_expr, while_expr, for_expr, assign, logical_or)).boxed()
+        choice((assign, logical_or)).boxed()
     })
 }
 
