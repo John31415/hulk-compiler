@@ -1,7 +1,6 @@
 use crate::ast::{ExprKind, Program, ProgramKind, Spanned};
 use crate::lexer::{Token, TokenKind};
 use crate::parser::decl::decl_parser;
-use crate::parser::expr::block::block_parser;
 use crate::parser::expr::expr_parser;
 use crate::parser::span_from_token_slice;
 use chumsky::{error::Rich, prelude::*};
@@ -15,12 +14,7 @@ pub fn program_parser<'src>()
         } => ()
     };
     let expr = expr_parser().boxed();
-    let block = block_parser(expr.clone());
-    let entry = choice((
-        block.then_ignore(semi.or_not()),
-        expr.clone().then_ignore(semi),
-    ))
-    .or_not();
+    let entry = (expr.clone().then_ignore(semi.or_not())).or_not();
     decl_parser(expr.clone())
         .repeated()
         .collect::<Vec<_>>()

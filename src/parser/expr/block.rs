@@ -13,8 +13,9 @@ pub fn block_parser<'src>(
         } => ()
     };
     expr.clone()
-        .then_ignore(semi.clone())
-        .repeated()
+        .separated_by(semi.clone())
+        .allow_trailing()
+        .at_least(1)
         .at_least(1)
         .collect::<Vec<_>>()
         .delimited_by(
