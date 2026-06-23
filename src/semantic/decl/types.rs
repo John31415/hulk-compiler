@@ -33,6 +33,7 @@ impl SemanticAnalyzer {
             for (param_name, param_type_opt) in param_list {
                 let param_type_id = match param_type_opt {
                     Some(type_name) => match self.ctx.types.resolve(type_name) {
+                        Some(id) if self.ctx.types.get(id).is_protocol() => object_type,
                         Some(id) => id,
                         None => {
                             self.diagnostics.push(
@@ -182,9 +183,9 @@ impl SemanticAnalyzer {
                 default,
             } = &feature.node
             {
-                let typed_default = default.as_ref().map(|init_expr| {
-                    self.analyze_expr(init_expr)
-                });
+                let typed_default = default
+                    .as_ref()
+                    .map(|init_expr| self.analyze_expr(init_expr));
                 let expected_attr_type = match type_name {
                     Some(t_name) => self.ctx.types.resolve(t_name).unwrap_or_else(|| {
                         self.diagnostics.push(
@@ -205,11 +206,11 @@ impl SemanticAnalyzer {
                         .unwrap_or(object_type),
                 };
                 if let Some(ref default_val) = typed_default {
-                    if !self.ctx.types.is_subtype_of(
-                        &self.ctx,
-                        default_val.ty,
-                        expected_attr_type,
-                    ) {
+                    if !self
+                        .ctx
+                        .types
+                        .is_subtype_of(&self.ctx, default_val.ty, expected_attr_type)
+                    {
                         self.diagnostics.push(
                             SemanticError::new(
                                 SemanticErrorKind::AttributeTypeMismatch {
@@ -223,10 +224,18 @@ impl SemanticAnalyzer {
                         );
                     }
                 }
+                let final_attr_type = if self.ctx.types.get(expected_attr_type).is_protocol() {
+                    typed_default
+                        .as_ref()
+                        .map(|td| td.ty)
+                        .unwrap_or(expected_attr_type)
+                } else {
+                    expected_attr_type
+                };
                 let attr_symbol = Symbol {
                     name: attr_name.clone(),
                     kind: SymbolKind::Attribute,
-                    ty: SymbolType::Variable(expected_attr_type),
+                    ty: SymbolType::Variable(final_attr_type),
                     span: feature.span,
                 };
                 if !self
@@ -248,7 +257,7 @@ impl SemanticAnalyzer {
                 let typed_feature = TypedTypeFeature::new(
                     TypedTypeFeatureKind::Attribute {
                         name: attr_name.clone(),
-                        type_id: expected_attr_type,
+                        type_id: final_attr_type,
                         default: typed_default,
                     },
                     feature.span,
@@ -256,7 +265,7 @@ impl SemanticAnalyzer {
                 typed_features.push(typed_feature);
             }
         }
-        self.ctx.pop_scope(); 
+        self.ctx.pop_scope();
         for feature in features {
             if let TypeFeaturesKind::Method {
                 name: method_name,
@@ -379,7 +388,11 @@ impl SemanticAnalyzer {
                                 .into(),
                             );
                         }
-                        declared
+                        if self.ctx.types.get(declared).is_protocol() {
+                            body_type.ty
+                        } else {
+                            declared
+                        }
                     }
                     None => body_type.ty,
                 };

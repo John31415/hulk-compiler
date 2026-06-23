@@ -190,10 +190,18 @@ impl SemanticAnalyzer {
                     None => (object_type, None),
                 },
             };
+            let final_attr_type = if self.ctx.types.get(expected_attr_type).is_protocol() {
+                typed_default
+                    .as_ref()
+                    .map(|td| td.ty)
+                    .unwrap_or(expected_attr_type)
+            } else {
+                expected_attr_type
+            };
             let attr_symbol = Symbol {
                 name: attr_name.clone(),
                 kind: SymbolKind::Attribute,
-                ty: SymbolType::Variable(expected_attr_type),
+                ty: SymbolType::Variable(final_attr_type),
                 span: feature.span,
             };
             if !self.ctx.types.insert_attribute(new_type_id, attr_symbol) {
@@ -211,7 +219,7 @@ impl SemanticAnalyzer {
             typed_features.push(TypedTypeFeature::new(
                 TypedTypeFeatureKind::Attribute {
                     name: attr_name.clone(),
-                    type_id: expected_attr_type,
+                    type_id: final_attr_type,
                     default: typed_default,
                 },
                 feature.span,
@@ -354,7 +362,11 @@ impl SemanticAnalyzer {
                             .into(),
                         );
                     }
-                    declared
+                    if self.ctx.types.get(declared).is_protocol() {
+                        body_type.ty
+                    } else {
+                        declared
+                    }
                 }
                 None => body_type.ty,
             };
