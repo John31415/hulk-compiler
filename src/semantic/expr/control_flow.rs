@@ -104,6 +104,7 @@ impl SemanticAnalyzer {
                 )
                 .into(),
             );
+            return TypedExpr::new(TypedExprKind::Block(vec![]), object_type, span);
         }
         let (_, loop_var_type) = self
             .ctx

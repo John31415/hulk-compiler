@@ -134,8 +134,8 @@ impl TypeTable {
                 let mut ok = true;
                 for m in expected_methods {
                     let cmp_methods =
-                        |m_type: Symbol, m_protocol: Symbol, ctx: &SemanticContext| {
-                            if m_type.name != m_protocol.name {
+                    |m_type: Symbol, m_protocol: Symbol, ctx: &SemanticContext| {
+                        if m_type.name != m_protocol.name {
                                 return false;
                             }
                             if let SymbolType::Function {
@@ -152,7 +152,7 @@ impl TypeTable {
                                         if p_protocol.len() == p_type.len() {
                                             let mut ok = true;
                                             for (param_type, param_protocol) in
-                                                p_type.iter().zip(p_protocol.iter())
+                                            p_type.iter().zip(p_protocol.iter())
                                             {
                                                 if !self.is_subtype_of(
                                                     &ctx,
@@ -169,10 +169,10 @@ impl TypeTable {
                             }
                             false
                         };
-                    let mut left_methods: Vec<Symbol> = Vec::new();
-                    let mut current = Some(left);
-                    while let Some(id) = current {
-                        for (_, m) in &ctx.types.infos[id.0].methods {
+                        let mut left_methods: Vec<Symbol> = Vec::new();
+                        let mut current = Some(left);
+                        while let Some(id) = current {
+                            for (_, m) in &ctx.types.infos[id.0].methods {
                             left_methods.push(m.clone());
                         }
                         current = ctx.types.infos[id.0].parent;
