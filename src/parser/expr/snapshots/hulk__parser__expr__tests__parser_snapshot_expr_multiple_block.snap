@@ -135,7 +135,12 @@ node:
             node:
               Let:
                 name: b
-                type_name: Number
+                type_name:
+                  Named:
+                    name: Number
+                    span:
+                      start: 94
+                      end: 102
                 value:
                   node:
                     Literal:

@@ -9,8 +9,17 @@ node:
       - - text
         - ~
       - - str
-        - Number
-    return_type: String
+        - Named:
+            name: Number
+            span:
+              start: 30
+              end: 38
+    return_type:
+      Named:
+        name: String
+        span:
+          start: 39
+          end: 47
     body:
       node:
         Call:

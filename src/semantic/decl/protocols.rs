@@ -136,3 +136,39 @@ impl SemanticAnalyzer {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::semantic::{SemanticAnalyzer, test_utils::parse_program};
+
+    #[test]
+    fn semantic_unit_test_protocol_ok() {
+        let source = r#"  
+protocol P1 {
+    p1(): Number;
+}
+
+interface P2 {
+    p2(p_: String): String;
+}
+
+protocol P extends P1, P2 {
+    p(): Boolean;
+}
+
+type A {
+    p1(): Number => 42;
+
+    p2(p_: String): String => p_;
+
+    p(): Boolean => true;
+}
+
+let x: P = new A() in 42;
+        "#;
+        let program = parse_program(source);
+        let mut analyzer = SemanticAnalyzer::new();
+        let _ = analyzer.analyze_program(program);
+        assert_eq!(analyzer.diagnostics.len(), 0);
+    }
+}

@@ -7,7 +7,11 @@ node:
     name: PolarPoint
     params:
       - - phi
-        - Number
+        - Named:
+            name: Number
+            span:
+              start: 28
+              end: 36
       - - rho
         - ~
     parent:
@@ -80,7 +84,12 @@ node:
           Method:
             name: rho
             params: []
-            return_type: Number
+            return_type:
+              Named:
+                name: Number
+                span:
+                  start: 109
+                  end: 117
             body:
               node:
                 Call:
