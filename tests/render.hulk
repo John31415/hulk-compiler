@@ -1,0 +1,139 @@
+// ================================================================================
+//  HULK INTEGRAL TEST SUITE: ADVANCED TYPES, POLYMORPHISM & PROTOCOLS
+// ================================================================================
+
+// This test covers advanced type relations, expressions, and operations.
+
+// DIAGNOSTIC & FEATURE BREAKDOWN:
+
+// PROTOCOL INHERITANCE (EXTENDS)
+//    - 'Renderable' extends 'Identifiable', creating a deep structural subtyping rule.
+//    - Any type matching 'Renderable' must satisfy methods from both protocols.
+
+// COMPLEX CONSTRUCTOR INHERITANCE & BASE INVOCATION
+//    - 'UIElement' -> 'Button' -> 'IconButton'.
+//    - 'Button' computes expressions inside 'inherits UIElement(...)'.
+//    - 'IconButton' chains this, testing argument mapping and the 'base()' method.
+
+// ADVANCED EXPRESSIONS IN ATTRIBUTE INITIALIZATION
+//    - 'UIElement' uses mathematical expressions (`sqrt`, `^`, `sin`) directly 
+//      within its body fields to initialize state.
+
+// TYPE CHECKING (is) AND DOWNCASTING (as) WITH COMPONENT ISOLATION
+//    - The 'render_scene' function receives a 'Renderable*'. It dynamically probes
+//      objects using 'is' and unpacks them via 'as' to perform specific operations.
+// ================================================================================
+
+// Protocol Hierarchy
+protocol Identifiable {
+    id(): String;
+}
+
+protocol Renderable extends Identifiable {
+    render(): String;
+    area(): Number;
+}
+
+// Base Type: UIElement (Uses complex attribute math expressions)
+type UIElement(name: String, width: Number, height: Number) {
+    name = name;
+    w = width;
+    h = height;
+    
+    // Complex mathematical initialization
+    diagonal = sqrt(width ^ 2 + height ^ 2);
+    render_hash = sin(width) * cos(height) + rand();
+
+    id(): String => "[Element:" @ self.name @ "]";
+    area(): Number => self.w * self.h;
+    render(): String => "Rendering basic shape with diagonal: " @ self.diagonal;
+    get_diagonal() => self.diagonal;
+}
+
+// Child Type: Button (Chains constructor expressions and overrides methods)
+type Button(label: String, w: Number, h: Number) inherits UIElement(label, w + 10, h + 5) {
+    label = label;
+    is_pressed = false;
+
+    // Destructive mutation inside a class method
+    press() {
+        self.is_pressed := true;
+    }
+
+    // Dynamic dispatch & method overriding using base()
+    id(): String => "Btn" @@ base();
+    render(): String => "Drawing button labeled: '" 
+                        @ self.label 
+                        @ "' | Status pressed: " 
+                        @ if (self.is_pressed) "true" else "false";
+                        
+}
+
+// Grandchild Type: IconButton (Deep chain inheritance and extended features)
+type IconButton(icon_id: String, label: String) inherits Button(label, 50, 20) {
+    icon = icon_id;
+
+    id(): String => "Icon" @ base();
+    render(): String => base() @@ "with icon:" @@ self.icon;
+}
+
+// Helper Enumerable Type to generate the stream for the test
+type InterfaceGenerator() {
+    state = 0;
+
+    next(): Boolean {
+        self.state := self.state + 1;
+        self.state <= 3;
+    }
+
+    current() {
+        if (self.state == 1) { new UIElement("Background", 1920, 1080); }
+        elif (self.state == 2) { new Button("Submit", 100, 30); }
+        else { new IconButton("star_icon", "Favorite"); };
+    }
+}
+
+// Global Consumer Function using Type*
+function render_scene(scene: Renderable*) {
+    for (element in scene) {
+        print("--- Processing Element ---");
+        print("ID: " @ element.id());
+        print("Area: " @ element.area());
+        print("Draw: " @ element.render());
+
+        // Advanced Runtime Type Querying (is) & Downcasting (as)
+        if (element is Button) {
+            let btn = element as Button in {
+                print("-> Action: Pressing the button...");
+                btn.press();
+                print("-> New State: " @ btn.render());
+            };
+        } else {
+            print("-> Action: Non-interactive element.");
+        };
+    };
+}
+
+// 6. Global Entry Block
+{
+    print("=============================================");
+    print("   STARTING INTEGRAL TYPE COMPLIANCE TEST    ");
+    print("=============================================");
+
+    // Constructing a UIElement and executing complex base initialization math
+    let sample_element = new UIElement("Canvas", 10, 20) in {
+        print("Sample element diagonal: " @ sample_element.get_diagonal());
+    };
+
+    print("");
+
+    // Testing structural typing over the extended Renderable* protocol
+    let stream: Renderable* = new InterfaceGenerator() in {
+        render_scene(stream);
+    };
+
+    print("");
+    print("=============================================");
+    print("            TEST COMPLETION: OK              ");
+    print("=============================================");
+}

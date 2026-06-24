@@ -1,0 +1,86 @@
+// ================================================================================
+//  HULK COMPILER TEST SUITE: RECURSION SPECIFICATION
+// ================================================================================
+
+// This test evaluates the compiler's ability to handle frame allocations, call stacks,
+// and conditional evaluation across different flavors of recursive execution.
+
+// GLOBAL TREE RECURSION
+//    - The 'fib' function executes classic non-linear tree recursion. 
+//    - Tests binary branching on the call stack and correct evaluation order 
+//      of arithmetic operations containing multiple recursive sub-expressions.
+
+// NESTED RECURSION
+//    - The third branch 'ackermann(m - 1, ackermann(m, n - 1))' passes a 
+//      recursive call *as an argument* to another recursive call.
+//    - Tests the compiler's ability to evaluate inner expressions and manage
+//      temporary values on the stack before invoking the outer function.
+
+// OBJECT METHOD RECURSION & STATE MUTATION
+//    - The 'Countdown' class implements a recursive method 'run()'.
+//    - Tests the compiler's capacity to maintain the correct pointer to 'self' 
+//      within nested member-function calls while destructively modifying (`:=`) 
+//      instance attributes.
+// ================================================================================
+
+// Global Tree Recursion (Fibonacci)
+function fib(n: Number): Number =>
+    if (n <= 0) { 
+        0; 
+    } else if (n == 1) { 
+        1; 
+    } else { 
+        fib(n - 1) + fib(n - 2); 
+    };
+
+// Ackermann Function Implementation
+function ackermann(m: Number, n: Number): Number =>
+    if (m == 0) {
+        n + 1;
+    } else if (m > 0 & n == 0) {
+        ackermann(m - 1, 1);
+    } else {
+        ackermann(m - 1, ackermann(m, n - 1));
+    };
+
+// Object Method Recursion
+type Countdown(start: Number) {
+    val: Number = start;
+
+    run(): Number =>
+        if (self.val <= 0) {
+            print("Liftoff!");
+            0;
+        } else {
+            print("T-minus: " @ self.val);
+            self.val := self.val - 1;
+            self.run(); 
+        };
+}
+
+// Global Entry Block
+{
+    print("--- Testing Fibonacci (Tree Recursion) ---");
+    
+    for (i in range(0, 10)) print("Fib(" @ i @ ") = " @ fib(i)); 
+
+    print("");
+
+    print("--- Testing Ackermann Function ---");
+    
+    print("A(0, 3) = " @ ackermann(0, 3)); 
+    
+    print("A(1, 2) = " @ ackermann(1, 2)); 
+    
+    print("A(2, 2) = " @ ackermann(2, 2)); 
+    
+    print("A(3, 3) = " @ ackermann(3, 3));
+
+    print("");
+
+    print("--- Testing Object Method Recursion ---");
+
+    let timer = new Countdown(3) in {
+        timer.run();
+    };
+}

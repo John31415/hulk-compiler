@@ -1,0 +1,129 @@
+// ================================================================================
+//  HULK COMPILER TEST SUITE: COMPLETE FEATURE AND SPECIFICATION SPEC
+// ================================================================================
+
+// NOMINAL INHERITANCE VS. STRUCTURAL POLYMORPHISM
+//    - Nominal Hierarchy: 'Ship' acts as a concrete base class. 'Fighter' and 
+//      'Freighter' establish a nominal relationship using the `inherits` keyword.
+//    - Lowest Common Ancestor (LCA) Inference: The 'current()' method in 
+//      'FleetGenerator' contains a conditional expression returning either 
+//      a 'Fighter' or a 'Freighter'. The Type Checker must automatically infer 
+//      its return type as 'Ship' (the LCA).
+//    - Compile-Time Structural Protocols: The 'Spaceship' protocol defines an 
+//      interface. Neither 'Ship' nor its subclasses explicitly declare compliance, 
+//      but because 'Ship' fulfills the required signatures, it structurally conforms.
+
+// DUCK TYPING & FULL TYPE INFERENCE IN OBJECTS
+//    - Parameter Inference: 'FastShipFilter(base, min_speed)' accepts untyped 
+//      arguments.
+//    - Destructive Assignment: Use of the `:=` operator inside 'next()' loops 
+//      verifies state mutation tracking for attributes and local variable bindings.
+
+// THE TYPED ITERABLE DESIGN
+//    - Sugar Syntax Expansion: The syntax `Spaceship*` used in 'print_fleet_stats' 
+//      and the global block triggers the compiler to implicitly generate a 
+//      specialized protocol:
+//         protocol Iterable_Spaceship extends Iterable { current(): Spaceship; }
+//    - Compile-time Type Erasure: While `Spaceship*` enforces strong contract 
+//      validation during semantic analysis, it is completely erased before runtime.
+//    - For-Loop Transpilation: The `for (ship in fleet)` loop is unrolled into 
+//      a `while(fleet.next())` structure, automatically binding 'ship' to 
+//      'fleet.current()' with 'Spaceship' as its inferred static type.
+
+// ================================================================================
+
+function random(a, b) => a + rand() * b;
+
+protocol Spaceship {
+    name(): String;
+    mass(): Number;
+    speed(): Number;
+}
+
+type Ship() {
+    name(): String => "";
+    mass(): Number => 0;
+    speed(): Number => 0;
+}
+
+type Fighter(id: String, mass: Number, speed: Number) inherits Ship {
+    id: String = id;
+    m: Number = mass;
+    s: Number = speed;
+
+    name(): String => self.id;
+    mass(): Number => self.m;
+    speed(): Number => self.s;
+}
+
+type Freighter(id: String, empty_mass: Number, cargo: Number) inherits Ship {
+    id: String = id;
+    m: Number = empty_mass;
+    c: Number = cargo;
+
+    name(): String => self.id;
+    mass(): Number => self.m + self.c;
+    speed(): Number => 50000000 / self.mass(); 
+}
+
+type FleetGenerator() {
+    i: Number = 0;
+
+    next(): Boolean {
+        self.i := self.i + 1;
+        self.i <= 10;
+    }
+
+    current() {
+        if (self.i % 2 == 0) { new Fighter("X-Wing", random(1000, 1500), random(100, 200)); }
+        else { new Freighter("Millennium Falcon", random(3000, 7000), random(1000, 3000)); }
+    }
+}
+
+type FastShipFilter(base, min_speed) {
+    base = base;
+    min_speed = min_speed;
+    curr: Ship = new Fighter("Dummy", 0, 0);
+
+    next(): Boolean {
+        let found = false in {
+            while (!found & self.base.next()) {
+                let ship = self.base.current() in {
+                    if (ship.speed() >= self.min_speed) {
+                        self.curr := ship;
+                        found := true;
+                    } else { 
+                        false; 
+                    };
+                };
+            };
+            found;
+        };
+    }
+
+    current() => self.curr;
+}
+
+function print_fleet_stats(fleet: Spaceship*) {
+    let total_mass = 0 in {
+        for (ship in fleet) {
+            print("Ship: " @ ship.name() @ " | Speed: " @ ship.speed());
+            total_mass := total_mass + ship.mass();
+        };
+        print("Total mass: " @ total_mass);
+    };
+}
+
+{
+    print("--- Full Fleet ---");
+    let full_fleet: Spaceship* = new FleetGenerator() in {
+        print_fleet_stats(full_fleet);
+    };
+
+    print("");
+    
+    print("--- Only Fast Ships ---");
+    let fast_fleet: Spaceship* = new FastShipFilter(new FleetGenerator(), random(4000, 5000)) in {
+        print_fleet_stats(fast_fleet);
+    };
+}
