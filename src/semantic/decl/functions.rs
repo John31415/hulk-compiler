@@ -1,4 +1,4 @@
-use crate::ast::{Decl, DeclKind};
+use crate::ast::{Decl, DeclKind, TypeAnnotation};
 use crate::lexer::Span;
 use crate::semantic::SemanticAnalyzer;
 use crate::semantic::error::{SemanticError, SemanticErrorKind};
@@ -21,9 +21,13 @@ impl SemanticAnalyzer {
         let mut typed_params = Vec::new();
         for (param_name, param_type_opt) in params {
             let param_type_id = match param_type_opt {
-                Some(type_name) => match self.ctx.types.resolve(type_name) {
+                Some(type_name) => match self.ctx.types.resolve_type(type_name) {
                     Some(id) => {
                         if self.ctx.types.get(id).is_protocol() {
+                            let type_name = match type_name {
+                                TypeAnnotation::Named { name, .. } => name,
+                                TypeAnnotation::Star { name, .. } => name,
+                            };
                             self.diagnostics.push(
                                 SemanticError::new(
                                     SemanticErrorKind::ProtocolNotAllowedAsParameterType {
@@ -40,6 +44,10 @@ impl SemanticAnalyzer {
                         }
                     }
                     None => {
+                        let type_name = match type_name {
+                            TypeAnnotation::Named { name, .. } => name,
+                            TypeAnnotation::Star { name, .. } => name,
+                        };
                         self.diagnostics.push(
                             SemanticError::new(
                                 SemanticErrorKind::UnknownTypeInParameter {
@@ -83,9 +91,13 @@ impl SemanticAnalyzer {
             typed_params.push(typed_param);
         }
         let expected_return = match return_type {
-            Some(type_name) => match self.ctx.types.resolve(type_name) {
+            Some(type_name) => match self.ctx.types.resolve_type(type_name) {
                 Some(id) => id,
                 None => {
+                    let type_name = match type_name {
+                        TypeAnnotation::Named { name, .. } => name,
+                        TypeAnnotation::Star { name, .. } => name,
+                    };
                     self.diagnostics.push(
                         SemanticError::new(
                             SemanticErrorKind::UnknownReturnType {
@@ -215,7 +227,9 @@ impl SemanticAnalyzer {
             );
             typed_params.push(typed_param);
         }
-        let declared_return = return_type.as_ref().and_then(|t| self.ctx.types.resolve(t));
+        let declared_return = return_type
+            .as_ref()
+            .and_then(|t| self.ctx.types.resolve_type(t));
         self.ctx.current_function_return = declared_return;
         let body_type = self.analyze_expr(body);
         self.ctx.current_function_return = None;

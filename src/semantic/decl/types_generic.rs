@@ -1,4 +1,4 @@
-use crate::ast::DeclKind;
+use crate::ast::{DeclKind, TypeAnnotation};
 use crate::lexer::span::Span;
 use crate::semantic::SemanticAnalyzer;
 use crate::semantic::context::GenericInstanceKey;
@@ -141,7 +141,11 @@ impl SemanticAnalyzer {
             };
 
             let declared_attr_type = match type_name {
-                Some(t_name) => Some(self.ctx.types.resolve(t_name).unwrap_or_else(|| {
+                Some(t_name) => Some(self.ctx.types.resolve_type(t_name).unwrap_or_else(|| {
+                    let t_name = match t_name {
+                        TypeAnnotation::Named { name, .. } => name,
+                        TypeAnnotation::Star { name, .. } => name,
+                    };
                     self.diagnostics.push(
                         SemanticError::new(
                             SemanticErrorKind::UnknownTypeInAttribute {
@@ -268,8 +272,12 @@ impl SemanticAnalyzer {
             let mut typed_method_params = Vec::new();
             for (p_name, p_type_opt) in method_params {
                 let p_type_id = match p_type_opt {
-                    Some(t_name) => match self.ctx.types.resolve(t_name) {
+                    Some(t_name) => match self.ctx.types.resolve_type(t_name) {
                         Some(id) if self.ctx.types.get(id).is_protocol() => {
+                            let t_name = match t_name {
+                                TypeAnnotation::Named { name, .. } => name,
+                                TypeAnnotation::Star { name, .. } => name,
+                            };
                             self.diagnostics.push(
                                 SemanticError::new(
                                     SemanticErrorKind::ProtocolNotAllowedAsParameterType {
@@ -284,6 +292,10 @@ impl SemanticAnalyzer {
                         }
                         Some(id) => id,
                         None => {
+                            let t_name = match t_name {
+                                TypeAnnotation::Named { name, .. } => name,
+                                TypeAnnotation::Star { name, .. } => name,
+                            };
                             self.diagnostics.push(
                                 SemanticError::new(
                                     SemanticErrorKind::UnknownTypeInMethodParameter {
@@ -315,7 +327,11 @@ impl SemanticAnalyzer {
                 ));
             }
             let declared_ret_id = match return_type {
-                Some(t_name) => Some(self.ctx.types.resolve(t_name).unwrap_or_else(|| {
+                Some(t_name) => Some(self.ctx.types.resolve_type(t_name).unwrap_or_else(|| {
+                    let t_name = match t_name {
+                        TypeAnnotation::Named { name, .. } => name,
+                        TypeAnnotation::Star { name, .. } => name,
+                    };
                     self.diagnostics.push(
                         SemanticError::new(
                             SemanticErrorKind::UnknownReturnTypeInMethod {
@@ -608,13 +624,13 @@ impl SemanticAnalyzer {
 enum TypeFeaturesKindRef<'a> {
     Attribute {
         attr_name: &'a String,
-        type_name: &'a Option<String>,
+        type_name: &'a Option<TypeAnnotation>,
         default: &'a Option<crate::ast::Expr>,
     },
     Method {
         method_name: &'a String,
-        method_params: &'a Vec<(String, Option<String>)>,
-        return_type: &'a Option<String>,
+        method_params: &'a Vec<(String, Option<TypeAnnotation>)>,
+        return_type: &'a Option<TypeAnnotation>,
     },
 }
 

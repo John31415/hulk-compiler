@@ -1,5 +1,8 @@
 use super::symbols::Symbol;
+use crate::ast::TypeAnnotation;
+use crate::lexer::Span;
 use crate::semantic::context::SemanticContext;
+use crate::semantic::symbols::SymbolKind;
 use crate::semantic::symbols::SymbolType;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -134,8 +137,8 @@ impl TypeTable {
                 let mut ok = true;
                 for m in expected_methods {
                     let cmp_methods =
-                    |m_type: Symbol, m_protocol: Symbol, ctx: &SemanticContext| {
-                        if m_type.name != m_protocol.name {
+                        |m_type: Symbol, m_protocol: Symbol, ctx: &SemanticContext| {
+                            if m_type.name != m_protocol.name {
                                 return false;
                             }
                             if let SymbolType::Function {
@@ -152,7 +155,7 @@ impl TypeTable {
                                         if p_protocol.len() == p_type.len() {
                                             let mut ok = true;
                                             for (param_type, param_protocol) in
-                                            p_type.iter().zip(p_protocol.iter())
+                                                p_type.iter().zip(p_protocol.iter())
                                             {
                                                 if !self.is_subtype_of(
                                                     &ctx,
@@ -169,10 +172,10 @@ impl TypeTable {
                             }
                             false
                         };
-                        let mut left_methods: Vec<Symbol> = Vec::new();
-                        let mut current = Some(left);
-                        while let Some(id) = current {
-                            for (_, m) in &ctx.types.infos[id.0].methods {
+                    let mut left_methods: Vec<Symbol> = Vec::new();
+                    let mut current = Some(left);
+                    while let Some(id) = current {
+                        for (_, m) in &ctx.types.infos[id.0].methods {
                             left_methods.push(m.clone());
                         }
                         current = ctx.types.infos[id.0].parent;
@@ -236,7 +239,7 @@ impl TypeTable {
     pub fn get_parent(&self, type_id: TypeId) -> Option<TypeId> {
         self.infos[type_id.0].parent
     }
-    
+
     pub fn find_lca(&self, a: TypeId, b: TypeId) -> TypeId {
         let mut ancestors_a = HashSet::new();
         let mut current = Some(a);
@@ -333,5 +336,84 @@ impl TypeTable {
         });
         self.by_name.insert(name, id);
         Some(id)
+    }
+
+    pub fn add_parent_to_protocol(&mut self, protocol_id: TypeId, parent_id: TypeId) {
+        if let Some(info) = self.infos.get_mut(protocol_id.0) {
+            if let TypeKind::Protocol { parents } = &mut info.kind {
+                if !parents.contains(&parent_id) {
+                    parents.push(parent_id);
+                }
+            } else {
+                panic!("Critical: Attempted to add a parent protocol to a non-protocol type");
+            }
+        }
+    }
+
+    pub fn add_method_to_protocol(
+        &mut self,
+        protocol_id: TypeId,
+        method_name: &str,
+        param_types: Vec<TypeId>,
+        return_type: TypeId,
+        span: Span,
+    ) {
+        if let Some(info) = self.infos.get_mut(protocol_id.0) {
+            if let TypeKind::Protocol { .. } = &info.kind {
+                let method = Symbol {
+                    name: method_name.to_string(),
+                    kind: SymbolKind::Function,
+                    ty: SymbolType::Function {
+                        params: param_types,
+                        ret: return_type,
+                    },
+                    span,
+                };
+                self.insert_method(protocol_id, method);
+            } else {
+                panic!("Critical: Attempted to add a protocol method to a non-protocol type");
+            }
+        }
+    }
+
+    pub fn resolve_type(
+        &mut self,
+        annotation: &TypeAnnotation,
+    ) -> Option<TypeId> {
+        match annotation {
+            TypeAnnotation::Named { name, .. } => self.resolve(name),
+            TypeAnnotation::Star {
+                name: base_name,
+                span,
+            } => {
+                let base_id = self.resolve(base_name)?;
+                let bool_id = self.resolve("Boolean")?;
+                let iterable_id = self.resolve("Iterable")?;
+                let protocol_name = format!("Iterable${}", base_name);
+                if let Some(id) = self.resolve(&protocol_name) {
+                    return Some(id);
+                }
+                let new_protocol_id = self
+                    .insert_protocol_placeholder(protocol_name)
+                    .expect("Protocol name collision during desugaring");
+                self
+                    .add_parent_to_protocol(new_protocol_id, iterable_id);
+                self.add_method_to_protocol(
+                    new_protocol_id,
+                    "next",
+                    vec![],
+                    bool_id,
+                    span.clone(),
+                );
+                self.add_method_to_protocol(
+                    new_protocol_id,
+                    "current",
+                    vec![],
+                    base_id,
+                    span.clone(),
+                );
+                Some(new_protocol_id)
+            }
+        }
     }
 }

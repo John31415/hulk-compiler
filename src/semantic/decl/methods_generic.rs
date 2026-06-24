@@ -1,4 +1,4 @@
-use crate::ast::{Expr, TypeFeaturesKind};
+use crate::ast::{Expr, TypeAnnotation, TypeFeaturesKind};
 use crate::lexer::span::Span;
 use crate::semantic::SemanticAnalyzer;
 use crate::semantic::error::{SemanticError, SemanticErrorKind};
@@ -31,8 +31,8 @@ impl SemanticAnalyzer {
             }
         };
         let (decl_params, return_type, body): (
-            &Vec<(String, Option<String>)>,
-            &Option<String>,
+            &Vec<(String, Option<TypeAnnotation>)>,
+            &Option<TypeAnnotation>,
             &Expr,
         ) = match &feature.node {
             TypeFeaturesKind::Method {
@@ -90,7 +90,7 @@ impl SemanticAnalyzer {
                 feature.span,
             ));
         }
-        let declared_return = return_type.as_ref().and_then(|t| self.ctx.types.resolve(t));
+        let declared_return = return_type.as_ref().and_then(|t| self.ctx.types.resolve_type(t));
         self.ctx.current_function_return = declared_return;
         self.ctx.current_method = Some(method_name.to_string());
         let body_type = self.analyze_expr(body);

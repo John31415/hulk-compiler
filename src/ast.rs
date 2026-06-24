@@ -26,16 +26,22 @@ pub struct ProgramKind {
 pub type Decl = Spanned<DeclKind>;
 
 #[derive(Debug, Clone, Serialize)]
+pub enum TypeAnnotation {
+    Named { name: String, span: Span },
+    Star { name: String, span: Span },
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub enum DeclKind {
     Function {
         name: String,
-        params: Vec<(String, Option<String>)>,
-        return_type: Option<String>,
+        params: Vec<(String, Option<TypeAnnotation>)>,
+        return_type: Option<TypeAnnotation>,
         body: Expr,
     },
     Type {
         name: String,
-        params: Option<Vec<(String, Option<String>)>>,
+        params: Option<Vec<(String, Option<TypeAnnotation>)>>,
         parent: Option<InheritInfo>,
         features: Vec<TypeFeatures>,
     },
@@ -89,7 +95,7 @@ pub enum ExprKind {
     },
     Let {
         name: String,
-        type_name: Option<String>,
+        type_name: Option<TypeAnnotation>,
         value: Box<Expr>,
         body: Box<Expr>,
     },
@@ -128,13 +134,13 @@ pub type TypeFeatures = Spanned<TypeFeaturesKind>;
 pub enum TypeFeaturesKind {
     Attribute {
         name: String,
-        type_name: Option<String>,
+        type_name: Option<TypeAnnotation>,
         default: Option<Expr>,
     },
     Method {
         name: String,
-        params: Vec<(String, Option<String>)>,
-        return_type: Option<String>,
+        params: Vec<(String, Option<TypeAnnotation>)>,
+        return_type: Option<TypeAnnotation>,
         body: Expr,
     },
 }

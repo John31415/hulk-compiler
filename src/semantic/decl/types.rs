@@ -1,5 +1,5 @@
-use crate::ast::TypeFeaturesKind;
 use crate::ast::{Decl, DeclKind};
+use crate::ast::{TypeAnnotation, TypeFeaturesKind};
 use crate::lexer::span::Span;
 use crate::semantic::SemanticAnalyzer;
 use crate::semantic::error::{SemanticError, SemanticErrorKind};
@@ -32,8 +32,12 @@ impl SemanticAnalyzer {
             let mut t_params = Vec::new();
             for (param_name, param_type_opt) in param_list {
                 let param_type_id = match param_type_opt {
-                    Some(type_name) => match self.ctx.types.resolve(type_name) {
+                    Some(type_name) => match self.ctx.types.resolve_type(type_name) {
                         Some(id) if self.ctx.types.get(id).is_protocol() => {
+                            let type_name = match type_name {
+                                TypeAnnotation::Named { name, .. } => name,
+                                TypeAnnotation::Star { name, .. } => name,
+                            };
                             self.diagnostics.push(
                                 SemanticError::new(
                                     SemanticErrorKind::ProtocolNotAllowedAsParameterType {
@@ -48,6 +52,10 @@ impl SemanticAnalyzer {
                         }
                         Some(id) => id,
                         None => {
+                            let type_name = match type_name {
+                                TypeAnnotation::Named { name, .. } => name,
+                                TypeAnnotation::Star { name, .. } => name,
+                            };
                             self.diagnostics.push(
                                 SemanticError::new(
                                     SemanticErrorKind::UnknownTypeInFunctionParameter {
@@ -199,7 +207,11 @@ impl SemanticAnalyzer {
                     .as_ref()
                     .map(|init_expr| self.analyze_expr(init_expr));
                 let expected_attr_type = match type_name {
-                    Some(t_name) => self.ctx.types.resolve(t_name).unwrap_or_else(|| {
+                    Some(t_name) => self.ctx.types.resolve_type(t_name).unwrap_or_else(|| {
+                        let t_name = match t_name {
+                            TypeAnnotation::Named { name, .. } => name,
+                            TypeAnnotation::Star { name, .. } => name,
+                        };
                         self.diagnostics.push(
                             SemanticError::new(
                                 SemanticErrorKind::UnknownTypeInAttribute {
@@ -297,8 +309,12 @@ impl SemanticAnalyzer {
                 let mut typed_params = Vec::new();
                 for (p_name, p_type_opt) in method_params {
                     let p_type_id = match p_type_opt {
-                        Some(t_name) => match self.ctx.types.resolve(t_name) {
+                        Some(t_name) => match self.ctx.types.resolve_type(t_name) {
                             Some(id) => {
+                                let t_name = match t_name {
+                                    TypeAnnotation::Named { name, .. } => name,
+                                    TypeAnnotation::Star { name, .. } => name,
+                                };
                                 if self.ctx.types.get(id).is_protocol() {
                                     self.diagnostics.push(
                                         SemanticError::new(
@@ -316,6 +332,10 @@ impl SemanticAnalyzer {
                                 }
                             }
                             None => {
+                                let t_name = match t_name {
+                                    TypeAnnotation::Named { name, .. } => name,
+                                    TypeAnnotation::Star { name, .. } => name,
+                                };
                                 self.diagnostics.push(
                                     SemanticError::new(
                                         SemanticErrorKind::UnknownTypeInMethodParameter {
@@ -349,19 +369,25 @@ impl SemanticAnalyzer {
                     typed_params.push(typed_param);
                 }
                 let declared_ret_id = match return_type {
-                    Some(t_name) => Some(self.ctx.types.resolve(t_name).unwrap_or_else(|| {
-                        self.diagnostics.push(
-                            SemanticError::new(
-                                SemanticErrorKind::UnknownReturnTypeInMethod {
-                                    method: method_name.to_string(),
-                                    type_name: t_name.to_string(),
-                                },
-                                feature.span,
-                            )
-                            .into(),
-                        );
-                        object_type
-                    })),
+                    Some(t_name) => {
+                        Some(self.ctx.types.resolve_type(t_name).unwrap_or_else(|| {
+                            let t_name = match t_name {
+                                TypeAnnotation::Named { name, .. } => name,
+                                TypeAnnotation::Star { name, .. } => name,
+                            };
+                            self.diagnostics.push(
+                                SemanticError::new(
+                                    SemanticErrorKind::UnknownReturnTypeInMethod {
+                                        method: method_name.to_string(),
+                                        type_name: t_name.to_string(),
+                                    },
+                                    feature.span,
+                                )
+                                .into(),
+                            );
+                            object_type
+                        }))
+                    }
                     None => None,
                 };
                 if let Some(parent_info) = parent {
@@ -487,7 +513,7 @@ impl SemanticAnalyzer {
     pub fn validate_method_override_arity_and_params(
         &mut self,
         method_name: &str,
-        current_params: &[(String, Option<String>)],
+        current_params: &[(String, Option<TypeAnnotation>)],
         parent_method_sig: &SymbolType,
         span: Span,
     ) {
@@ -515,7 +541,7 @@ impl SemanticAnalyzer {
                 }
                 let current_p_id = p_type_opt
                     .as_ref()
-                    .and_then(|t| self.ctx.types.resolve(t))
+                    .and_then(|t| self.ctx.types.resolve_type(t))
                     .unwrap_or_else(|| self.ctx.types.resolve("Object").unwrap());
                 if current_p_id != parent_params[i] {
                     self.diagnostics.push(

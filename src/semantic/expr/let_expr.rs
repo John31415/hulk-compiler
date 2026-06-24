@@ -1,4 +1,4 @@
-use crate::ast::Expr;
+use crate::ast::{Expr, TypeAnnotation};
 use crate::lexer::span::Span;
 use crate::semantic::SemanticAnalyzer;
 use crate::semantic::error::{SemanticError, SemanticErrorKind};
@@ -9,15 +9,19 @@ impl SemanticAnalyzer {
     pub fn analyze_let(
         &mut self,
         name: &str,
-        type_name: &Option<String>,
+        type_name: &Option<TypeAnnotation>,
         value: &Expr,
         body: &Expr,
         span: Span,
     ) -> TypedExpr {
         let value_type = self.analyze_expr(value);
         let var_type = match type_name {
-            Some(t_name) => match self.ctx.types.resolve(t_name) {
+            Some(t_name) => match self.ctx.types.resolve_type(t_name) {
                 Some(id) => {
+                    let t_name = match t_name {
+                        TypeAnnotation::Named { name, .. } => name,
+                        TypeAnnotation::Star { name, .. } => name,
+                    };
                     if !self.ctx.types.is_subtype_of(&self.ctx, value_type.ty, id) {
                         self.diagnostics.push(
                             SemanticError::new(
@@ -37,6 +41,10 @@ impl SemanticAnalyzer {
                     }
                 }
                 None => {
+                    let t_name = match t_name {
+                        TypeAnnotation::Named { name, .. } => name,
+                        TypeAnnotation::Star { name, .. } => name,
+                    };
                     self.diagnostics.push(
                         SemanticError::new(
                             SemanticErrorKind::UnknownTypeInLetAnnotation {

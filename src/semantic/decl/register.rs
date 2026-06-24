@@ -1,4 +1,4 @@
-use crate::ast::{Decl, DeclKind};
+use crate::ast::{Decl, DeclKind, TypeAnnotation};
 use crate::ast::{ProtocolMethodsKind, TypeFeaturesKind};
 use crate::semantic::SemanticAnalyzer;
 use crate::semantic::error::{SemanticError, SemanticErrorKind};
@@ -22,7 +22,7 @@ impl SemanticAnalyzer {
                     let mut any_param_generic = false;
                     for (param_name, param_type_opt) in params {
                         match param_type_opt {
-                            Some(type_name) => match self.ctx.types.resolve(type_name) {
+                            Some(type_name) => match self.ctx.types.resolve_type(type_name) {
                                 Some(id) if self.ctx.types.get(id).is_protocol() => {
                                     any_param_generic = true;
                                     param_types.push(None);
@@ -33,6 +33,10 @@ impl SemanticAnalyzer {
                                     param_protocol_constraints.push(None);
                                 }
                                 None => {
+                                    let type_name = match type_name {
+                                        TypeAnnotation::Named { name, .. } => name,
+                                        TypeAnnotation::Star { name, .. } => name,
+                                    };
                                     self.diagnostics.push(
                                         SemanticError::new(
                                             SemanticErrorKind::UnknownTypeInParameter {
@@ -55,7 +59,9 @@ impl SemanticAnalyzer {
                             }
                         }
                     }
-                    let ret_resolved = return_type.as_ref().and_then(|t| self.ctx.types.resolve(t));
+                    let ret_resolved = return_type
+                        .as_ref()
+                        .and_then(|t| self.ctx.types.resolve_type(t));
                     let ret_is_generic =
                         return_type.is_some() && ret_resolved.is_none() || return_type.is_none();
                     let new_ty = if any_param_generic || ret_is_generic {
@@ -124,8 +130,9 @@ impl SemanticAnalyzer {
                     let constructor_params = params.as_ref().map(|param_list| {
                         let mut v = Vec::new();
                         for (p_name, p_type_opt) in param_list {
-                            let p_type =
-                                p_type_opt.as_ref().and_then(|t| self.ctx.types.resolve(t));
+                            let p_type = p_type_opt
+                                .as_ref()
+                                .and_then(|t| self.ctx.types.resolve_type(t));
                             v.push(ConstructorParam {
                                 name: p_name.clone(),
                                 ty: p_type,
@@ -148,13 +155,13 @@ impl SemanticAnalyzer {
                             for (_, p_type_opt) in method_params {
                                 let p_id = p_type_opt
                                     .as_ref()
-                                    .and_then(|t| self.ctx.types.resolve(t))
+                                    .and_then(|t| self.ctx.types.resolve_type(t))
                                     .unwrap_or_else(|| self.ctx.types.resolve("Object").unwrap());
                                 p_types.push(p_id);
                             }
                             let r_id = return_type
                                 .as_ref()
-                                .and_then(|t| self.ctx.types.resolve(t))
+                                .and_then(|t| self.ctx.types.resolve_type(t))
                                 .unwrap_or_else(|| self.ctx.types.resolve("Object").unwrap());
                             let method_symbol = Symbol {
                                 name: method_name.clone(),
