@@ -1,32 +1,246 @@
 # hulk-compiler
 
-A high-performance HULK language compiler in Rust, featuring a custom lexer, parser, semantic analyzer, and LLVM backend.
+`hulk-compiler` is a compiler for **HULK**, an educational programming language designed to combine a modern, expressive syntax with a robust type system. HULK supports full type inference, structural typing, nominal inheritance, advanced polymorphism, protocols, and iterable abstractions.
 
-## Prerequisites: LLVM 20 Installation Guide
+This project implements the full pipeline from source code to executable output:
 
-This project uses **Inkwell** and **llvm-sys (v201.x)**, which require **LLVM 20** and its development libraries. Installing a different LLVM version will usually result in compilation or linking errors.
-
-Follow the instructions for your operating system.
+- Lexical analysis
+- Parsing
+- Semantic analysis
+- HIR lowering
+- LLVM backend code generation
+- Native execution through a C runtime
 
 ---
 
-### Linux (Ubuntu / Debian / WSL)
+## Features
 
-If you previously installed other LLVM versions, it is recommended to remove them first to avoid library conflicts.
+- **Lexer, parser, semantic analyzer, and backend**
+- **Type inference** for unannotated functions and generic templates
+- **Protocols / interfaces** with structural typing
+- **Generative iterable types** such as `T*`
+- **Monomorphization** for generic types and functions
+- **Nominal inheritance** and virtual methods
 
-#### Remove Existing LLVM Installations
+### Built-in Runtime Functions
 
-```bash
-sudo apt remove --purge -y "llvm*" "clang*" "libllvm*" "polly*"
-sudo apt autoremove -y
-sudo apt clean
+| Function | Description |
+|---|---|
+| `sqrt(x)` | Square root |
+| `sin(x)` | Sine |
+| `cos(x)` | Cosine |
+| `exp(x)` | Exponential |
+| `log(base, value)` | Logarithm |
+| `rand()` | Random number |
+| `print(...)` | Print to output |
+
+### Built-in Constants
+
+| Constant | Value |
+|---|---|
+| `PI` | Pi (π) |
+| `E` | Euler's number (e) |
+
+### String Operations
+
+| Operator | Description |
+|---|---|
+| `@` | String concatenation |
+| `@@` | String concatenation with whitespace |
+
+> **Note:** Protocols are desugared during semantic analysis and do not reach the backend directly. Iterables are lowered to basic control-flow constructs before code generation.
+
+---
+
+## Technology Stack
+
+| Component | Technology |
+|---|---|
+| **Language** | Rust |
+| **Lexer** | [`logos`](https://docs.rs/logos) |
+| **Parser** | [`chumsky`](https://docs.rs/chumsky) |
+| **LLVM backend** | [`inkwell`](https://docs.rs/inkwell) |
+| **Diagnostics** | [`ariadne`](https://docs.rs/ariadne) |
+| **Serialization / snapshots** | [`serde`](https://serde.rs), [`insta`](https://insta.rs) |
+| **Runtime support** | C (`runtime/runtime.c`) |
+
+---
+
+## Repository Structure
+
+```text
+.
+├── Cargo.lock
+├── Cargo.toml
+├── Makefile
+├── README.md
+├── docs
+├── runtime
+│   └── runtime.c
+├── src
+│   ├── ast.rs
+│   ├── backend
+│   │   ├── context.rs
+│   │   ├── decl
+│   │   │   ├── decl_types.rs
+│   │   │   ├── functions.rs
+│   │   │   ├── methods.rs
+│   │   │   └── mod.rs
+│   │   ├── emit.rs
+│   │   ├── error.rs
+│   │   ├── expr
+│   │   │   ├── assign.rs
+│   │   │   ├── binary.rs
+│   │   │   ├── block.rs
+│   │   │   ├── call.rs
+│   │   │   ├── control_flow.rs
+│   │   │   ├── let_expr.rs
+│   │   │   ├── mod.rs
+│   │   │   ├── new.rs
+│   │   │   ├── postfix.rs
+│   │   │   ├── primary.rs
+│   │   │   └── unary.rs
+│   │   ├── functions.rs
+│   │   ├── method_slots.rs
+│   │   ├── mod.rs
+│   │   ├── runtime.rs
+│   │   └── types.rs
+│   ├── diagnostics
+│   │   ├── diagnostic.rs
+│   │   ├── mod.rs
+│   │   └── render.rs
+│   ├── lexer
+│   │   ├── error.rs
+│   │   ├── lexer.rs
+│   │   ├── mod.rs
+│   │   ├── span.rs
+│   │   ├── tests.rs
+│   │   └── token.rs
+│   ├── main.rs
+│   ├── parser
+│   │   ├── decl
+│   │   │   ├── function_decl.rs
+│   │   │   ├── mod.rs
+│   │   │   ├── protocol_decl.rs
+│   │   │   ├── snapshots
+│   │   │   └── type_decl.rs
+│   │   ├── error.rs
+│   │   ├── expr
+│   │   │   ├── assign.rs
+│   │   │   ├── binary.rs
+│   │   │   ├── block.rs
+│   │   │   ├── control_flow.rs
+│   │   │   ├── let_expr.rs
+│   │   │   ├── mod.rs
+│   │   │   ├── new.rs
+│   │   │   ├── postfix.rs
+│   │   │   ├── primary.rs
+│   │   │   ├── snapshots
+│   │   │   └── unary.rs
+│   │   ├── mod.rs
+│   │   ├── program.rs
+│   │   ├── snapshots
+│   │   ├── test_utils.rs
+│   │   └── tests.rs
+│   └── semantic
+│       ├── analyzer.rs
+│       ├── builtin.rs
+│       ├── context.rs
+│       ├── decl
+│       │   ├── collect.rs
+│       │   ├── declarations.rs
+│       │   ├── functions.rs
+│       │   ├── inherit.rs
+│       │   ├── methods_generic.rs
+│       │   ├── mod.rs
+│       │   ├── protocols.rs
+│       │   ├── register.rs
+│       │   ├── resolve_constructor.rs
+│       │   ├── types.rs
+│       │   └── types_generic.rs
+│       ├── error.rs
+│       ├── expr
+│       │   ├── assign.rs
+│       │   ├── binary.rs
+│       │   ├── block.rs
+│       │   ├── call.rs
+│       │   ├── control_flow.rs
+│       │   ├── let_expr.rs
+│       │   ├── mod.rs
+│       │   ├── new.rs
+│       │   ├── postfix.rs
+│       │   ├── primary.rs
+│       │   └── unary.rs
+│       ├── hir.rs
+│       ├── mod.rs
+│       ├── symbols.rs
+│       ├── test_utils.rs
+│       ├── tests.rs
+│       └── types.rs
+├── stdlib
+│   └── prelude.hulk
+└── tests
+    ├── recursion.hulk
+    ├── render.hulk
+    └── ships.hulk
 ```
 
-#### Install Required Dependencies
+---
+
+## Standard Library
+
+The standard library is loaded from:
+
+```
+stdlib/prelude.hulk
+```
+
+It defines built-in functionality such as:
+
+- `protocol Iterable`
+- `type Range`
+- `range(start, end)`
+- Math and utility helpers
+- Built-in protocol/type behavior used by semantic analysis
+
+> Protocols are desugared during compilation and do not reach the LLVM backend as standalone runtime objects.
+
+---
+
+## Build Requirements
+
+This project uses **LLVM 18** through `inkwell` with the `llvm18-1` feature.
+
+You need:
+
+- Rust toolchain
+- LLVM 18 development files
+- A C compiler (`cc`, `clang`, or `gcc`)
+- `llc` available in your `PATH` (or configured through `HULK_LLC`)
+- `cc`/`clang`/`gcc` available in your `PATH` (or configured through `HULK_CC`)
+
+### Verify LLVM
+
+```bash
+llvm-config --version
+```
+
+Expected output:
+
+```
+18.x.x
+```
+
+---
+
+## Installation Notes for LLVM 18
+
+### Linux (Ubuntu / Debian / WSL)
+
+**1. Install dependencies:**
 
 ```bash
 sudo apt update
-
 sudo apt install -y \
     build-essential \
     wget \
@@ -41,117 +255,219 @@ sudo apt install -y \
     libffi-dev
 ```
 
-#### Install LLVM 20
+**2. Install LLVM 18 and the development packages:**
 
 ```bash
-wget https://apt.llvm.org/llvm.sh
-chmod +x llvm.sh
-sudo ./llvm.sh 20
+sudo apt install -y llvm-18 llvm-18-dev libpolly-18-dev
 ```
 
-#### Install LLVM Development Packages
+**3. If needed, set the environment variables:**
 
 ```bash
-sudo apt install -y llvm-20-dev libpolly-20-dev
+export LLVM_CONFIG_PATH=/usr/lib/llvm-18/bin/llvm-config
+export LLVM_SYS_180_PREFIX=/usr/lib/llvm-18
 ```
-
-#### Configure Environment Variables
-
-Create a stable symlink for `llvm-config`:
-
-```bash
-sudo ln -sf /usr/lib/llvm-20/bin/llvm-config /usr/bin/llvm-config
-```
-
-Add the required environment variables to your shell profile:
-
-```bash
-echo 'export LLVM_CONFIG_PATH=/usr/lib/llvm-20/bin/llvm-config' >> ~/.bashrc
-echo 'export LLVM_SYS_201_PREFIX=/usr/lib/llvm-20' >> ~/.bashrc
-```
-
-Apply the changes:
-
-```bash
-source ~/.bashrc
-```
-
----
 
 ### macOS
 
-LLVM can be installed using Homebrew.
-
-#### Install LLVM 20
+**1. Install LLVM 18 with Homebrew:**
 
 ```bash
-brew install llvm@20
+brew install llvm@18
 ```
 
-#### Configure Environment Variables
-
-Add the following lines to your shell profile (`~/.zshrc` or `~/.bash_profile`):
+**2. Set environment variables:**
 
 ```bash
-export LLVM_CONFIG_PATH=$(brew --prefix llvm@20)/bin/llvm-config
-export LLVM_SYS_201_PREFIX=$(brew --prefix llvm@20)
-export PATH="$(brew --prefix llvm@20)/bin:$PATH"
+export LLVM_CONFIG_PATH="$(brew --prefix llvm@18)/bin/llvm-config"
+export LLVM_SYS_180_PREFIX="$(brew --prefix llvm@18)"
+export PATH="$(brew --prefix llvm@18)/bin:$PATH"
 ```
-
-Apply the changes:
-
-```bash
-source ~/.zshrc
-```
-
----
 
 ### Windows
 
-#### Install LLVM 20
+Install the LLVM 18 binary distribution and make sure LLVM is added to `PATH`.
 
-Download and install the official LLVM 20 x64 binary release:
+If you use MSVC, also install:
 
-* `LLVM-20.x.x-win64.exe`
-
-During installation, make sure to enable:
-
-> Add LLVM to the system PATH
-
-#### Configure Environment Variables
-
-Open **PowerShell as Administrator** and run:
-
-```powershell
-[Environment]::SetEnvironmentVariable(
-    "LLVM_SYS_201_PREFIX",
-    "C:\Program Files\LLVM",
-    "User"
-)
-```
-
-If LLVM was installed in a different directory, replace the path accordingly.
-
-#### Install Visual Studio Build Tools
-
-Rust's MSVC toolchain requires the Visual C++ compiler.
-
-Using the **Visual Studio Installer**, install:
-
-* Desktop development with C++
+- Desktop development with C++
 
 ---
 
-### Verify Installation
+## Build and Run
 
-Ensure the correct LLVM version is being used:
+The normal build/run workflow is:
 
 ```bash
-llvm-config --version
+make build
+./hulk path/to/file.hulk
+./output
 ```
 
-Expected output:
+### What These Commands Do
 
-```text
-20.x.x
+| Command | Description |
+|---|---|
+| `make build` | Compiles the Rust project in release mode and copies the binary to `./hulk` |
+| `./hulk path/to/file.hulk` | Parses, analyzes, lowers, and emits LLVM IR / native artifacts for the given HULK file |
+| `./output` | Runs the generated native executable |
+
+### Other Useful Commands
+
+**Clean the project:**
+
+```bash
+make clean
 ```
+
+This removes:
+
+- The compiled `hulk` binary
+- Generated object files
+- Emitted LLVM IR files
+- Generated native output
+
+**Run tests:**
+
+```bash
+cargo test
+```
+
+This runs the lexer, parser, semantic, and snapshot tests.
+
+---
+
+## Language Examples
+
+### Arithmetic and Built-ins
+
+```hulk
+print(sin(2 * PI) ^ 2 + cos(3 * PI / log(4, 64)));
+```
+
+### Inline Functions
+
+```hulk
+function pi() => PI;
+```
+
+### Function Bodies
+
+```hulk
+function ackermann_pi(m: Number, n: Number): Number {
+    (
+    if (m == 0) n + 1;
+    elif (m > 0 & n == 0) ackermann(m - 1, 1)
+    else ackermann(m - 1, ackermann(m, n - 1))
+    ) * PI;
+}
+```
+
+### `let`
+
+```hulk
+let number: Number = PI, text: String = "The meaning of life is" in
+    print(text @ number);
+```
+
+### Blocks
+
+```hulk
+{
+    print("PI");
+    print(PI);
+    print("E");
+    print(E);
+}
+```
+
+### `while`
+
+```hulk
+while (true) print(PI);
+```
+
+### `if` / `elif` / `else`
+
+```hulk
+if (a % 3 == 0) print(PI) elif (a % 3 == 1) print(E) else print(E ^ PI);
+```
+
+### `for` over Iterables
+
+```hulk
+for (x in range(0, 10)) print(PI ^ x);
+```
+
+> The `for` loop is lowered to explicit iterator-style control flow during compilation and works with iterable protocols.
+
+### Types and Methods
+
+```hulk
+type Point(x, y) {
+    x = x;
+    y = y;
+
+    getX() => self.x;
+    getY() => self.y;
+
+    setX_PI() => self.x := PI;
+    setY_PI() => self.y := PI;
+}
+```
+
+### Inheritance and Polymorphism
+
+```hulk
+type PIE(pi, e) {
+    pi = pi;
+    e = e;
+
+    pie() => self.pi ^ self.e;
+}
+
+type life inherits PIE {
+    pie() => "life is" @@ base();
+}
+
+let pi_e = new life(PI, E) in
+    print(p.pie());
+```
+
+### Type Checks and Casts
+
+```hulk
+let p: PIE = new life() in {
+    if (p is life) (p as life).pie()
+    else "life is pi ^ e";
+}
+```
+
+### Protocols / Interfaces
+
+```hulk
+protocol PIrotocol {
+    pi(): Number;
+}
+
+interface Erotocol {
+    e(): Number;
+}
+
+protocol PIErotocol extends PIrotocol, Erotocol {
+    pie(pi: Number, e: Number): Number
+}
+```
+
+---
+
+## Tests
+
+Run all tests with:
+
+```bash
+cargo test
+```
+
+The `tests/` directory contains example HULK programs used to validate parsing, semantic checks, and runtime behavior.
+
