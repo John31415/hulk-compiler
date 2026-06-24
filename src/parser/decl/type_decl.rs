@@ -1,4 +1,6 @@
-use crate::ast::{Decl, DeclKind, Expr, InheritInfoKind, Spanned, TypeFeaturesKind};
+use crate::ast::{
+    Decl, DeclKind, Expr, InheritInfoKind, Spanned, TypeAnnotation, TypeFeaturesKind,
+};
 use crate::lexer::{Token, TokenKind};
 use crate::parser::expr::block::block_parser;
 use crate::parser::span_from_token_slice;
@@ -19,14 +21,41 @@ pub fn type_decl_parser<'src>(
             ..
         } => name.clone()
     };
-    let opt_type = select_ref! {
+    let opt_type = (select_ref! {
         Token {
             kind: TokenKind::Colon,
             ..
         } => ()
     }
-    .ignore_then(ident.clone())
-    .or_not();
+    .ignore_then(select_ref! {
+        Token {
+            kind: TokenKind::Identifier(name),
+            ..
+        } => name.clone()
+    })
+    .then(
+        select_ref! {
+            Token {
+                kind: TokenKind::Star,
+                ..
+            } => ()
+        }
+        .or_not(),
+    ))
+    .or_not()
+    .map_with(|type_name_opt, span| match type_name_opt {
+        Some((name, star)) => Some(match star {
+            Some(_) => TypeAnnotation::Star {
+                name: name.clone(),
+                span: span_from_token_slice(span.slice()),
+            },
+            None => TypeAnnotation::Named {
+                name: name.clone(),
+                span: span_from_token_slice(span.slice()),
+            },
+        }),
+        None => None,
+    });
     let parent_args = expr
         .clone()
         .separated_by(select_ref! {

@@ -1,5 +1,6 @@
-use crate::ast::{Expr, ExprKind, Spanned};
+use crate::ast::{Expr, ExprKind, Spanned, TypeAnnotation};
 use crate::lexer::{Span, Token, TokenKind};
+use crate::parser::span_from_token_slice;
 use chumsky::{error::Rich, prelude::*};
 
 pub fn let_expr_parser<'src>(
@@ -12,21 +13,41 @@ pub fn let_expr_parser<'src>(
         } => name.clone()
     }
     .then(
-        select_ref! {
+        (select_ref! {
             Token {
                 kind: TokenKind::Colon,
                 ..
             } => ()
         }
-        .ignore_then(
+        .ignore_then(select_ref! {
+            Token {
+                kind: TokenKind::Identifier(name),
+                ..
+            } => name.clone()
+        })
+        .then(
             select_ref! {
                 Token {
-                    kind: TokenKind::Identifier(name),
+                    kind: TokenKind::Star,
                     ..
-                } => name.clone()
+                } => ()
             }
-        )
+            .or_not(),
+        ))
         .or_not()
+        .map_with(|type_name_opt, span| match type_name_opt {
+            Some((name, star)) => Some(match star {
+                Some(_) => TypeAnnotation::Star {
+                    name: name.clone(),
+                    span: span_from_token_slice(span.slice()),
+                },
+                None => TypeAnnotation::Named {
+                    name: name.clone(),
+                    span: span_from_token_slice(span.slice()),
+                },
+            }),
+            None => None,
+        }),
     )
     .then_ignore(select_ref! {
         Token {

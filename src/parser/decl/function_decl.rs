@@ -1,4 +1,4 @@
-use crate::ast::{Decl, DeclKind, Expr, Spanned};
+use crate::ast::{Decl, DeclKind, Expr, Spanned, TypeAnnotation};
 use crate::lexer::{Token, TokenKind};
 use crate::parser::expr::block::block_parser;
 use crate::parser::span_from_token_slice;
@@ -19,16 +19,42 @@ pub fn function_decl_parser<'src>(
             ..
         } => name.clone()
     };
-    let param = ident.then(
+    let opt_type = (select_ref! {
+        Token {
+            kind: TokenKind::Colon,
+            ..
+        } => ()
+    }
+    .ignore_then(select_ref! {
+        Token {
+            kind: TokenKind::Identifier(name),
+            ..
+        } => name.clone()
+    })
+    .then(
         select_ref! {
             Token {
-                kind: TokenKind::Colon,
+                kind: TokenKind::Star,
                 ..
             } => ()
         }
-        .ignore_then(ident.clone())
         .or_not(),
-    );
+    ))
+    .or_not()
+    .map_with(|type_name_opt, span| match type_name_opt {
+        Some((name, star)) => Some(match star {
+            Some(_) => TypeAnnotation::Star {
+                name: name.clone(),
+                span: span_from_token_slice(span.slice()),
+            },
+            None => TypeAnnotation::Named {
+                name: name.clone(),
+                span: span_from_token_slice(span.slice()),
+            },
+        }),
+        None => None,
+    });
+    let param = ident.then(opt_type);
     let params = param
         .separated_by(select_ref! {
             Token {
@@ -49,16 +75,7 @@ pub fn function_decl_parser<'src>(
     }
     .ignore_then(ident)
     .then(params)
-    .then(
-        select_ref! {
-            Token {
-                kind: TokenKind::Colon,
-                ..
-            } => ()
-        }
-        .ignore_then(ident.clone())
-        .or_not(),
-    );
+    .then(opt_type);
     let inline_body = select_ref! {
         Token {
             kind: TokenKind::Arrow,
