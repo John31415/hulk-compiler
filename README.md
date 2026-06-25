@@ -13,6 +13,15 @@ This project implements the full pipeline from source code to executable output:
 
 ---
 
+## Documentation
+
+Detailed structural design, type system proofs, and compiler backend specifications are available in the project reports:
+
+*   [![Documentation - Full Report](https://img.shields.io/badge/Documentation-Full_Report-blue?style=flat-square&logo=read-the-docs)](docs/DOCUMENTATION.md) — **Complete Specification:** Exhaustive breakdown of semantics, compiler architecture, and the complete type checker implementation.
+*   [![Report - Condensed Version](https://img.shields.io/badge/Report-Condensed_Version-green?style=flat-square&logo=bookstack)](REPORT.md) — **Lightweight Summary:** A high-density summary focusing strictly on the core target architecture, language extensions, and comparisons with other programming languages.
+
+---
+
 ## Features
 
 - **Lexer, parser, semantic analyzer, and backend**
